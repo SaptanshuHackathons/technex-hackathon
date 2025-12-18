@@ -1,0 +1,386 @@
+/* Astra Widget - Default Styles */
+/* CSS Variables for theming */
+:root {
+  --astra-primary: #111827;
+  --astra-primary-hover: #1f2937;
+  --astra-bg-primary: #ffffff;
+  --astra-bg-secondary: #f9fafb;
+  --astra-bg-tertiary: #f3f4f6;
+  --astra-text-primary: #111827;
+  --astra-text-secondary: #6b7280;
+  --astra-border: #e5e7eb;
+  --astra-accent: #10b981;
+  --astra-radius: 1rem;
+  --astra-radius-lg: 1.5rem;
+  --astra-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --astra-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --astra-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
+
+/* Container */
+.astra-widget-container {
+  font-family: var(--astra-font-family);
+  position: fixed;
+  z-index: 9999;
+}
+
+.astra-widget-container.position-bottom-right {
+  bottom: 1.5rem;
+  right: 1.5rem;
+}
+
+.astra-widget-container.position-bottom-left {
+  bottom: 1.5rem;
+  left: 1.5rem;
+}
+
+/* Toggle Button */
+.astra-toggle {
+  width: 3.5rem;
+  height: 3.5rem;
+  background-color: var(--astra-primary);
+  color: white;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--astra-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  position: relative;
+}
+
+.astra-toggle:hover {
+  transform: scale(1.1);
+  background-color: var(--astra-primary-hover);
+}
+
+.astra-toggle svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  transition: transform 0.2s ease;
+}
+
+.astra-toggle:hover svg {
+  transform: scale(1.1);
+}
+
+.astra-toggle-indicator {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background-color: var(--astra-accent);
+  border-radius: 50%;
+  animation: astra-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes astra-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Chat Window */
+.astra-window {
+  width: 400px;
+  height: 600px;
+  background-color: var(--astra-bg-primary);
+  border-radius: var(--astra-radius-lg);
+  box-shadow: var(--astra-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--astra-border);
+  animation: astra-slide-in 0.3s ease-out;
+}
+
+@keyframes astra-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header */
+.astra-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--astra-border);
+  background: linear-gradient(to right, var(--astra-bg-secondary), var(--astra-bg-primary));
+}
+
+.astra-header-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.astra-header-status {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--astra-accent);
+  animation: astra-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.astra-header-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--astra-text-primary);
+  margin: 0;
+}
+
+.astra-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.astra-header-button {
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.astra-header-button:hover {
+  background-color: var(--astra-bg-tertiary);
+}
+
+.astra-header-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--astra-text-secondary);
+}
+
+/* Messages */
+.astra-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.astra-messages::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.astra-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.astra-messages::-webkit-scrollbar-thumb {
+  background: var(--astra-border);
+  border-radius: 0.25rem;
+}
+
+.astra-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--astra-text-secondary);
+}
+
+.astra-message {
+  display: flex;
+  animation: astra-message-in 0.3s ease-out;
+}
+
+@keyframes astra-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.astra-message.user {
+  justify-content: flex-end;
+}
+
+.astra-message.assistant {
+  justify-content: flex-start;
+}
+
+.astra-message-bubble {
+  max-width: 80%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--astra-radius);
+}
+
+.astra-message.user .astra-message-bubble {
+  background-color: var(--astra-primary);
+  color: white;
+}
+
+.astra-message.assistant .astra-message-bubble {
+  background-color: var(--astra-bg-tertiary);
+  color: var(--astra-text-primary);
+}
+
+.astra-message-content {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.25rem 0;
+}
+
+.astra-message-timestamp {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+/* Loading Indicator */
+.astra-loading {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.astra-loading-bubble {
+  background-color: var(--astra-bg-tertiary);
+  padding: 0.75rem 1rem;
+  border-radius: var(--astra-radius);
+  display: flex;
+  gap: 0.25rem;
+}
+
+.astra-loading-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: var(--astra-text-secondary);
+  border-radius: 50%;
+  animation: astra-bounce 1.4s infinite ease-in-out both;
+}
+
+.astra-loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.astra-loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes astra-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+/* Input */
+.astra-input-container {
+  border-top: 1px solid var(--astra-border);
+  padding: 1rem;
+  background-color: var(--astra-bg-primary);
+}
+
+.astra-input-wrapper {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.astra-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--astra-border);
+  border-radius: var(--astra-radius);
+  font-size: 0.875rem;
+  color: var(--astra-text-primary);
+  background-color: var(--astra-bg-secondary);
+  transition: all 0.2s ease;
+  font-family: var(--astra-font-family);
+}
+
+.astra-input:focus {
+  outline: none;
+  background-color: var(--astra-bg-primary);
+  border-color: var(--astra-primary);
+  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.1);
+}
+
+.astra-input::placeholder {
+  color: var(--astra-text-secondary);
+}
+
+.astra-send-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--astra-primary);
+  color: white;
+  border: none;
+  border-radius: var(--astra-radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--astra-font-family);
+}
+
+.astra-send-button:hover:not(:disabled) {
+  background-color: var(--astra-primary-hover);
+}
+
+.astra-send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Footer */
+.astra-footer {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to right, var(--astra-bg-secondary), var(--astra-bg-primary));
+  border-top: 1px solid var(--astra-border);
+}
+
+.astra-footer-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--astra-text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.astra-footer-link:hover {
+  color: var(--astra-text-primary);
+}
+
+.astra-footer-link svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.astra-footer-brand {
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .astra-window {
+    width: calc(100vw - 2rem);
+    height: calc(100vh - 2rem);
+  }
+}
