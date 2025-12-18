@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Download, Database, FileText, Loader2, ExternalLink } from 'lucide-react';
-import type { Message } from '../services/mockBackend';
+import type { Message } from '../services/api';
 
 interface ChatInterfaceProps {
   messages: Message[];
@@ -10,6 +10,8 @@ interface ChatInterfaceProps {
   onScrape: () => void;
   isScraping: boolean;
   onDownload: () => void;
+  onSummarize: () => void;
+  isSummarizing: boolean;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -19,7 +21,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   hasContext,
   onScrape,
   isScraping,
-  onDownload
+  onDownload,
+  onSummarize,
+  isSummarizing
 }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -42,46 +46,68 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="flex flex-col h-[450px] bg-background">
       {/* Action Bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-secondary/30">
-        <button
-          onClick={onScrape}
-          disabled={isScraping || hasContext}
-          className={`
-            flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
-            ${hasContext 
-              ? 'bg-green-500/10 text-green-500 cursor-default' 
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'}
-          `}
-        >
-          {isScraping ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : hasContext ? (
-            <Database className="w-3 h-3" />
-          ) : (
-            <Database className="w-3 h-3" />
-          )}
-          {isScraping ? 'Analyzing...' : hasContext ? 'Context Active' : 'Analyze Page'}
-        </button>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/30 gap-2">
+        {/* Left: Main Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onScrape}
+            disabled={isScraping || hasContext}
+            className={`
+              flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+              ${hasContext 
+                ? 'bg-green-500/10 text-green-500 cursor-default' 
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'}
+            `}
+          >
+            {isScraping ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : hasContext ? (
+              <Database className="w-3 h-3" />
+            ) : (
+              <Database className="w-3 h-3" />
+            )}
+            {isScraping ? 'Analyzing...' : hasContext ? 'Active' : 'Analyze'}
+          </button>
 
+          <button
+            onClick={onSummarize}
+            disabled={!hasContext || isSummarizing}
+            className={`
+              flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+              ${!hasContext || isSummarizing
+                ? 'bg-secondary/50 text-muted-foreground cursor-not-allowed' 
+                : 'bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20'}
+            `}
+            title="Generate page summary"
+          >
+            {isSummarizing ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <FileText className="w-3 h-3" />
+            )}
+            {isSummarizing ? 'Summarizing...' : 'Summarize'}
+          </button>
+        </div>
+
+        {/* Right: Secondary Actions */}
         <div className="flex items-center gap-2">
           <a
             href="https://astra-web.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-secondary text-foreground hover:bg-border transition-all border border-border"
+            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
             title="Visit Website"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            <span>Visit Site</span>
           </a>
 
           <button
             onClick={onDownload}
             disabled={messages.length === 0}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             title="Download Chat"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -102,13 +128,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           >
             <div
               className={`
-                max-w-[80%] rounded-2xl px-4 py-2 text-sm leading-relaxed
+                max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed
                 ${msg.role === 'user' 
                   ? 'bg-primary text-primary-foreground rounded-br-none' 
                   : 'bg-secondary text-secondary-foreground rounded-bl-none'}
               `}
             >
-              {msg.content}
+              <div className="whitespace-pre-wrap break-words">
+                {msg.content}
+              </div>
             </div>
           </div>
         ))}

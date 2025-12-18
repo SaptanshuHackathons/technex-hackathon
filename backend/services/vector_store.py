@@ -82,6 +82,15 @@ class VectorStoreService:
                 print(
                     f"Created Qdrant collection: {self.collection_name} with dimension {EMBEDDING_DIMENSION}"
                 )
+                print(f"Created Qdrant collection: {self.collection_name} with dimension {EMBEDDING_DIMENSION}")
+                
+                # Create filter index for crawl_id
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="crawl_id",
+                    field_schema="keyword"
+                )
+                print(f"Created payload index for 'crawl_id'")
             else:
                 # Collection exists, check if dimension matches
                 collection_info = self.client.get_collection(self.collection_name)
@@ -355,7 +364,11 @@ class VectorStoreService:
             raise Exception(f"Failed to batch store embeddings: {str(e)}")
 
     async def search_similar(
-        self, query_embedding: List[float], crawl_id: str, limit: int = 5
+        self, 
+        query_embedding: List[float], 
+        crawl_id: str,
+        limit: int = 10,
+        score_threshold: float = 0.3
     ) -> List[Dict[str, Any]]:
         """
         Search for similar documents using query embedding, filtered by crawl_id.
@@ -363,10 +376,11 @@ class VectorStoreService:
         Args:
             query_embedding: Query embedding vector
             crawl_id: Crawl session ID to filter results (only search within this crawl)
-            limit: Maximum number of results
-
+            limit: Maximum number of results (increased for better context)
+            score_threshold: Minimum similarity score (0-1) to include results
+            
         Returns:
-            List of similar documents with scores
+            List of similar documents with scores above threshold
         """
         try:
             import httpx
@@ -389,10 +403,17 @@ class VectorStoreService:
                 "with_payload": True,
                 "filter": {"must": [{"key": "crawl_id", "match": {"value": crawl_id}}]},
             }
+            
+            print(f"DEBUG: Search Payload - Vector Dim: {len(query_vector)}")
+            print(f"DEBUG: Search Payload - Filter Crawl ID: {crawl_id}")
+            # print(f"DEBUG: Full Payload: {payload}") # Uncomment for verbose
+
 
             # Make HTTP request to Qdrant API
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(search_url, json=payload, headers=headers)
+                if response.status_code != 200:
+                   print(f"DEBUG: Qdrant Error Body: {response.text}")
                 response.raise_for_status()
                 result_data = response.json()
 
@@ -417,6 +438,23 @@ class VectorStoreService:
                 # Double-check crawl_id filter (defensive)
                 if payload_data.get("crawl_id") != crawl_id:
                     continue
+                
+                # Filter by score threshold for better relevance
+                if float(score) < score_threshold:
+                    continue
+                
+                results.append({
+                    "page_id": payload_data.get("page_id", ""),
+                    "url": payload_data.get("url", ""),
+                    "base_url": payload_data.get("base_url", ""),
+                    "markdown": payload_data.get("markdown", ""),
+                    "title": payload_data.get("title", ""),
+                    "crawl_id": payload_data.get("crawl_id", ""),
+                    "score": float(score),
+                    "metadata": {
+                        "chunk_index": payload_data.get("chunk_index"),
+                        "total_chunks": payload_data.get("total_chunks"),
+                        "original_page_id": payload_data.get("original_page_id")
 
                 results.append(
                     {

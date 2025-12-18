@@ -19,6 +19,9 @@ from models import (
     WidgetQueryResponse,
     WidgetRefreshRequest,
     WidgetRefreshResponse,
+    SummarizeRequest,
+    SummarizeResponse
+
 )
 from config import WIDGET_API_KEY_PREFIX
 from services.scraper import ScraperService
@@ -1005,3 +1008,98 @@ async def widget_query(request: WidgetQueryRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Widget query failed: {str(e)}")
+@router.post("/summarize", response_model=SummarizeResponse)
+async def summarize_page(request: SummarizeRequest):
+    """
+    Generate a concise bullet-point summary of the scraped page content.
+    Returns a well-formatted summary with key points.
+    """
+    try:
+        # Get crawl_id from chat_id
+        crawl_id = db_service.get_crawl_id_from_chat_id(request.chat_id)
+        
+        if not crawl_id:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Chat ID '{request.chat_id}' not found. Please create a chat session first."
+            )
+        
+        # Get all relevant documents for this crawl (no query embedding needed)
+        # We'll use a dummy embedding and high limit to get all content
+        # Better approach: retrieve all chunks for the crawl_id directly
+        from config import EMBEDDING_DIMENSION
+        dummy_embedding = [0.0] * EMBEDDING_DIMENSION
+        
+        # Get more chunks for comprehensive summary
+        all_docs = await vector_store_service.search_similar(
+            query_embedding=dummy_embedding,
+            crawl_id=crawl_id,
+            limit=50,  # Get more content for summary
+            score_threshold=0.0  # No filtering, get all content
+        )
+        
+        if not all_docs:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No content found for chat '{request.chat_id}'. Please scrape a website first."
+            )
+        
+        # Combine all document content
+        combined_content = "\n\n".join([
+            f"Section {i+1}:\n{doc.get('markdown', '')}" 
+            for i, doc in enumerate(all_docs[:20])  # Limit to avoid token limits
+        ])
+        
+        # Create structured prompt for bullet-point summary
+        summary_prompt = f"""You are a professional content summarizer. Your task is to create a concise, well-structured summary of the following webpage content.
+
+**CRITICAL FORMATTING RULES:**
+1. Each bullet point MUST be on a NEW LINE
+2. Add a BLANK LINE after each bullet point for spacing
+3. Start each point with • or -
+4. Each point should be 1-2 lines maximum
+5. Include 5-8 bullet points total
+6. Use clear, simple language
+
+**Content to Summarize:**
+{combined_content[:8000]}
+
+**REQUIRED OUTPUT FORMAT (FOLLOW EXACTLY):**
+You MUST format your response EXACTLY like this example:
+
+• First key point about the main topic
+
+• Second important point with relevant details
+
+• Third point highlighting another aspect
+
+• Fourth point with additional information
+
+IMPORTANT: Put each bullet on its own line with a blank line after it. Do NOT put multiple bullets on the same line.
+
+Now provide the summary following this exact format:"""
+        
+        # Generate summary using RAG service's LLM
+        from langchain_core.messages import HumanMessage
+        response = await rag_service.llm.ainvoke([HumanMessage(content=summary_prompt)])
+        
+        summary_text = response.content.strip()
+        
+        return SummarizeResponse(
+            summary=summary_text,
+            chat_id=request.chat_id,
+            crawl_id=crawl_id,
+            metadata={
+                "model": "gemini-pro-latest",
+                "chunks_used": len(all_docs),
+                "content_length": len(combined_content)
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Summarization failed: {str(e)}"
+        )

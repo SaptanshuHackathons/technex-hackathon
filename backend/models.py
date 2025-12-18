@@ -103,3 +103,13 @@ class WidgetRefreshResponse(BaseModel):
     site_id: str
     indexed_page_count: int
     message: str
+
+class SummarizeRequest(BaseModel):
+    chat_id: str  # Required: identifies which crawl/chat session to summarize
+
+
+class SummarizeResponse(BaseModel):
+    summary: str  # Bullet-point formatted summary
+    chat_id: str
+    crawl_id: Optional[str] = None
+    metadata: Dict[str, Any]
