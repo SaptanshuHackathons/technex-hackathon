@@ -22,16 +22,17 @@ class ScraperService:
                 return f"{parts[0]}//{parts[2]}"
             return url
     
-    async def scrape_site(self, url: str, max_depth: int = 3) -> List[Dict[str, Any]]:
+    async def scrape_site(self, url: str, max_depth: int = 3, crawl_id: str = None) -> List[Dict[str, Any]]:
         """
         Scrape a website using FireCrawl and return markdown content with unique IDs.
         
         Args:
             url: The URL to scrape
             max_depth: Maximum depth for crawling (default: 3)
+            crawl_id: Unique crawl session ID
             
         Returns:
-            List of dictionaries containing page_id, url, markdown, base_url, and metadata
+            List of dictionaries containing page_id, url, markdown, base_url, crawl_id, and metadata
         """
         base_url = self._extract_base_url(url)
         
@@ -81,27 +82,28 @@ class ScraperService:
                                     "url": page_url,
                                     "base_url": base_url,
                                     "markdown": markdown_content,
+                                    "crawl_id": crawl_id,
                                     "metadata": {
                                         "title": getattr(getattr(page, 'metadata', None), 'title', '') if hasattr(page, 'metadata') else '',
                                         "description": getattr(getattr(page, 'metadata', None), 'description', '') if hasattr(page, 'metadata') else '',
                                         "statusCode": 200,
                                     }
                                 })
-                        return pages if pages else await self._scrape_single_page(url, base_url)
+                        return pages if pages else await self._scrape_single_page(url, base_url, crawl_id)
                     elif status.status == "failed":
                         break
                     await asyncio.sleep(2)
                     waited += 2
                 
                 # If crawl didn't complete, fall back to single page
-                return await self._scrape_single_page(url, base_url)
+                return await self._scrape_single_page(url, base_url, crawl_id)
             else:
                 # Single page scrape
-                return await self._scrape_single_page(url, base_url)
+                return await self._scrape_single_page(url, base_url, crawl_id)
             
         except Exception as e:
             # Fallback to single page scrape if crawl fails
-            return await self._scrape_single_page(url, base_url)
+            return await self._scrape_single_page(url, base_url, crawl_id)
     
     def _extract_markdown_from_result(self, result) -> str:
         """Extract markdown content from Firecrawl result, handling different response formats."""
@@ -128,7 +130,7 @@ class ScraperService:
         
         return markdown_str
     
-    async def _scrape_single_page(self, url: str, base_url: str) -> List[Dict[str, Any]]:
+    async def _scrape_single_page(self, url: str, base_url: str, crawl_id: str = None) -> List[Dict[str, Any]]:
         """Scrape a single page."""
         try:
             import asyncio
@@ -168,6 +170,7 @@ class ScraperService:
                 "url": url,
                 "base_url": base_url,
                 "markdown": markdown,
+                "crawl_id": crawl_id,
                 "metadata": {
                     "title": metadata.get("title", "") if isinstance(metadata, dict) else getattr(metadata, 'title', ''),
                     "description": metadata.get("description", "") if isinstance(metadata, dict) else getattr(metadata, 'description', ''),

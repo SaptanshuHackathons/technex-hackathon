@@ -125,6 +125,7 @@ class VectorStoreService:
         markdown: str,
         embedding: List[float],
         metadata: Dict[str, Any],
+        crawl_id: str,
         base_url: Optional[str] = None
     ) -> bool:
         """
@@ -136,23 +137,36 @@ class VectorStoreService:
             markdown: Page markdown content
             embedding: Embedding vector
             metadata: Additional metadata
+            crawl_id: Unique crawl session ID
             base_url: Base URL of the website (for filtering)
             
         Returns:
             True if successful
         """
         try:
+            # Build payload with all metadata
+            payload = {
+                "page_id": page_id,
+                "url": url,
+                "base_url": base_url or url,  # Use base_url if provided, otherwise use url
+                "markdown": markdown,
+                "title": metadata.get("title", ""),
+                "description": metadata.get("description", ""),
+                "crawl_id": crawl_id,  # Store crawl_id for filtering
+            }
+            
+            # Add chunk metadata if present
+            if "chunk_index" in metadata:
+                payload["chunk_index"] = metadata["chunk_index"]
+            if "total_chunks" in metadata:
+                payload["total_chunks"] = metadata["total_chunks"]
+            if "original_page_id" in metadata:
+                payload["original_page_id"] = metadata["original_page_id"]
+            
             point = PointStruct(
                 id=hash(page_id) % (2**63),  # Convert to int64
                 vector=embedding,
-                payload={
-                    "page_id": page_id,
-                    "url": url,
-                    "base_url": base_url or url,  # Use base_url if provided, otherwise use url
-                    "markdown": markdown,
-                    "title": metadata.get("title", ""),
-                    "description": metadata.get("description", ""),
-                }
+                payload=payload
             )
             
             self.client.upsert(
@@ -167,54 +181,55 @@ class VectorStoreService:
     async def search_similar(
         self, 
         query_embedding: List[float], 
-        limit: int = 5,
-        base_url: Optional[str] = None
+        crawl_id: str,
+        limit: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Search for similar documents using query embedding.
+        Search for similar documents using query embedding, filtered by crawl_id.
         
         Args:
             query_embedding: Query embedding vector
+            crawl_id: Crawl session ID to filter results (only search within this crawl)
             limit: Maximum number of results
-            base_url: Optional base URL to filter results by website
             
         Returns:
             List of similar documents with scores
         """
         try:
-            # Use HTTP API directly since client methods vary by version
-            # This approach works with any Qdrant version
             import httpx
             
             # Convert embedding to list of regular Python floats (handle numpy float32)
-            # This ensures JSON serialization works
             query_vector = [float(x) for x in query_embedding]
             
-            # Build search payload
+            # Build search payload for Qdrant HTTP API
             search_url = f"{QDRANT_URL}/collections/{self.collection_name}/points/search"
             headers = {"Content-Type": "application/json"}
             if QDRANT_API_KEY:
                 headers["api-key"] = QDRANT_API_KEY
             
+            # Qdrant HTTP API filter format
             payload = {
                 "vector": query_vector,
                 "limit": limit,
-                "with_payload": True
+                "with_payload": True,
+                "filter": {
+                    "must": [
+                        {
+                            "key": "crawl_id",
+                            "match": {
+                                "value": crawl_id
+                            }
+                        }
+                    ]
+                }
             }
             
-            # Add filter if base_url is provided
-            if base_url:
-                payload["filter"] = {
-                    "must": [{
-                        "key": "base_url",
-                        "match": {"value": base_url}
-                    }]
-                }
-            
             # Make HTTP request to Qdrant API
-            response = httpx.post(search_url, json=payload, headers=headers, timeout=30.0)
-            response.raise_for_status()
-            result_data = response.json()
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(search_url, json=payload, headers=headers)
+                response.raise_for_status()
+                result_data = response.json()
+            
             points = result_data.get("result", [])
             
             results = []
@@ -222,28 +237,34 @@ class VectorStoreService:
             for point in points:
                 # HTTP API returns dicts with 'payload' and 'score' keys
                 if isinstance(point, dict):
-                    payload = point.get("payload", {})
+                    payload_data = point.get("payload", {})
                     score = point.get("score", 0.0)
                 else:
                     # Fallback for object format
-                    payload = point.payload if hasattr(point, 'payload') else {}
+                    payload_data = point.payload if hasattr(point, 'payload') else {}
                     score = getattr(point, 'score', 0.0)
                 
                 # Ensure payload is a dict
-                if not isinstance(payload, dict):
-                    payload = {}
+                if not isinstance(payload_data, dict):
+                    payload_data = {}
                 
-                # If base_url filter was applied, double-check (defensive)
-                if base_url and payload.get("base_url") != base_url:
+                # Double-check crawl_id filter (defensive)
+                if payload_data.get("crawl_id") != crawl_id:
                     continue
                 
                 results.append({
-                    "page_id": payload.get("page_id", ""),
-                    "url": payload.get("url", ""),
-                    "base_url": payload.get("base_url", ""),
-                    "markdown": payload.get("markdown", ""),
-                    "title": payload.get("title", ""),
-                    "score": float(score)
+                    "page_id": payload_data.get("page_id", ""),
+                    "url": payload_data.get("url", ""),
+                    "base_url": payload_data.get("base_url", ""),
+                    "markdown": payload_data.get("markdown", ""),
+                    "title": payload_data.get("title", ""),
+                    "crawl_id": payload_data.get("crawl_id", ""),
+                    "score": float(score),
+                    "metadata": {
+                        "chunk_index": payload_data.get("chunk_index"),
+                        "total_chunks": payload_data.get("total_chunks"),
+                        "original_page_id": payload_data.get("original_page_id")
+                    }
                 })
             
             return results

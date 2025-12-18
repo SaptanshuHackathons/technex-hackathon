@@ -34,7 +34,11 @@ async def root():
             "scrape": "POST /api/scrape",
             "get_pages": "GET /api/pages",
             "get_page": "GET /api/pages/{page_id}",
-            "query": "POST /api/query"
+            "query": "POST /api/query",
+            "create_chat": "POST /api/chats",
+            "get_chat": "GET /api/chats/{chat_id}",
+            "list_crawls": "GET /api/crawls",
+            "get_crawl": "GET /api/crawls/{crawl_id}"
         }
     }
 

@@ -35,34 +35,21 @@ HUGGINGFACE_API_KEY=your_huggingface_api_key_here
 # Hugging Face Embedding Model (optional, defaults to BAAI/bge-m3)
 # EMBEDDING_MODEL_NAME=BAAI/bge-m3
 
-# Qdrant Configuration
-# For Qdrant Cloud (Recommended):
-QDRANT_URL=https://your-cluster-id.qdrant.io
-QDRANT_API_KEY=your_qdrant_cloud_api_key
-
-# For local Qdrant (optional):
-# QDRANT_URL=http://localhost:6333
-# Leave QDRANT_API_KEY empty for local
+# Qdrant Configuration - Using local Qdrant by default
+QDRANT_URL=http://localhost:6333
+# Leave QDRANT_API_KEY empty for local Qdrant
+# QDRANT_API_KEY=your_qdrant_cloud_api_key  # Only needed for Qdrant Cloud
 ```
 
-### 3. Set Up Qdrant
+### 3. Set Up Local Qdrant
 
-#### Option A: Qdrant Cloud (Recommended)
-
-1. Sign up at [Qdrant Cloud](https://cloud.qdrant.io)
-2. Create a cluster
-3. Get your API key and cluster URL
-4. Add them to your `.env` file:
-   ```env
-   QDRANT_URL=https://your-cluster-id.qdrant.io
-   QDRANT_API_KEY=your_qdrant_cloud_api_key
-   ```
-
-#### Option B: Local Qdrant (Docker)
+Run Qdrant locally using Docker:
 
 ```bash
 docker run -p 6333:6333 qdrant/qdrant
 ```
+
+The default configuration uses local Qdrant at `http://localhost:6333`. No API key is required for local instances.
 
 ### 4. Run the Server
 
@@ -84,7 +71,8 @@ Scrape a website and generate embeddings.
 ```json
 {
   "url": "https://example.com",
-  "max_depth": 3
+  "max_depth": 3,
+  "crawl_id": "optional-crawl-id"  // Optional: if not provided, a new crawl_id will be generated
 }
 ```
 
@@ -92,10 +80,13 @@ Scrape a website and generate embeddings.
 ```json
 {
   "success": true,
+  "crawl_id": "unique-crawl-id",
   "pages": [
     {
       "page_id": "uuid",
       "url": "https://example.com",
+      "base_url": "https://example.com",
+      "crawl_id": "unique-crawl-id",
       "markdown": "...",
       "metadata": {
         "title": "Example",
@@ -107,6 +98,8 @@ Scrape a website and generate embeddings.
   "message": "Successfully scraped 5 pages"
 }
 ```
+
+**Note:** Each crawl gets a unique `crawl_id`. All vectors from a crawl are stored with this ID for isolation.
 
 ### 2. Get All Scraped Pages
 
@@ -132,16 +125,39 @@ Returns all scraped pages with their IDs.
 
 Returns a specific scraped page by ID.
 
-### 4. Query RAG System
+### 4. Create Chat Session
+
+**POST** `/api/chats`
+
+Create a new chat session linked to a crawl. Each chat is associated with a specific crawl, ensuring queries only search within that crawl's content.
+
+**Request Body:**
+```json
+{
+  "crawl_id": "unique-crawl-id"
+}
+```
+
+**Response:**
+```json
+{
+  "chat_id": "unique-chat-id",
+  "crawl_id": "unique-crawl-id",
+  "message": "Chat session created successfully"
+}
+```
+
+### 5. Query RAG System
 
 **POST** `/api/query`
 
-Query the RAG system with a question.
+Query the RAG system with a question. Only searches within the content from the chat's associated crawl.
 
 **Request Body:**
 ```json
 {
   "query": "What is this website about?",
+  "chat_id": "unique-chat-id",
   "limit": 5
 }
 ```
@@ -150,6 +166,8 @@ Query the RAG system with a question.
 ```json
 {
   "answer": "This website is about...",
+  "chat_id": "unique-chat-id",
+  "crawl_id": "unique-crawl-id",
   "sources": [
     {
       "url": "https://example.com",
@@ -158,11 +176,29 @@ Query the RAG system with a question.
     }
   ],
   "metadata": {
-    "model": "gemini-2.0-flash-exp",
+    "model": "gemini-flash-latest",
     "context_documents_count": 5
   }
 }
 ```
+
+### 6. Get Chat Information
+
+**GET** `/api/chats/{chat_id}`
+
+Get metadata for a specific chat session.
+
+### 7. List All Crawls
+
+**GET** `/api/crawls`
+
+List all crawl sessions with their metadata.
+
+### 8. Get Crawl Information
+
+**GET** `/api/crawls/{crawl_id}`
+
+Get metadata for a specific crawl session.
 
 ## API Documentation
 
@@ -182,17 +218,37 @@ backend/
 │   ├── scraper.py      # FireCrawl scraping service
 │   ├── embeddings.py   # Hugging Face Inference API embedding service
 │   ├── vector_store.py # Qdrant vector store service
-│   └── rag.py          # RAG query service
-└── requirements.txt    # Python dependencies
+│   ├── rag.py          # RAG query service
+│   └── database.py     # Crawl and chat metadata storage
+├── requirements.txt    # Python dependencies
+└── crawl_chat_db.json  # Crawl and chat metadata (auto-generated)
 ```
+
+## Key Features
+
+### Crawl Isolation
+- Each website crawl gets a unique `crawl_id`
+- All vectors from a crawl are stored with this ID
+- Crawls are completely isolated from each other
+
+### Chat Sessions
+- Each chat session is linked to a specific crawl via `chat_id`
+- Queries only search within the associated crawl's content
+- Multiple chats can be created for the same crawl
+
+### Local Qdrant
+- Uses local Qdrant instance (no cloud API required)
+- All vectors stored locally in Qdrant
+- Metadata stored in JSON file (`crawl_chat_db.json`)
 
 ## Notes
 
-- The embedding dimension is set to 1024 for BAAI/bge-m3 model
+- The embedding dimension is set to 384 for `sentence-transformers/all-MiniLM-L6-v2` model
 - Embeddings use Hugging Face Inference API (requires API key, no local model download)
 - Get your free API key from https://huggingface.co/settings/tokens
 - Free tier includes generous rate limits for embeddings
 - Scraped pages are stored in-memory (consider using a database for production)
+- Crawl and chat metadata stored in `crawl_chat_db.json` (automatically created)
 - CORS is configured for Next.js frontend on `localhost:3000`
 - Adjust `max_depth` in scrape requests to control crawl depth
 

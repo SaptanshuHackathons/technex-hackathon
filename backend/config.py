@@ -20,9 +20,9 @@ HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 # Use models endpoint (router handles routing automatically)
 HUGGINGFACE_API_URL = f"https://router.huggingface.co/hf-inference/models/{EMBEDDING_MODEL_NAME}"
 
-# Qdrant Configuration
+# Qdrant Configuration - Using local Qdrant by default
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", None)  # None for local Qdrant
 
 # Vector Store Configuration
 COLLECTION_NAME = "scraped_pages"

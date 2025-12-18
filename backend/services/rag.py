@@ -29,11 +29,31 @@ class RAGService:
             Dictionary with answer, sources, and metadata
         """
         try:
-            # Build context from retrieved documents
-            context = "\n\n---\n\n".join([
-                f"Source {i+1} (URL: {doc['url']}):\n{doc['markdown'][:1000]}"
-                for i, doc in enumerate(context_documents)
-            ])
+            # Build context from retrieved documents (use full chunk content, not truncated)
+            context_parts = []
+            seen_urls = set()
+            for i, doc in enumerate(context_documents):
+                url = doc.get('url', '')
+                # Include chunk index if available
+                chunk_info = ""
+                doc_metadata = doc.get('metadata', {})
+                if doc_metadata and doc_metadata.get('chunk_index') is not None:
+                    chunk_idx = doc_metadata.get('chunk_index', 0) + 1
+                    total_chunks = doc_metadata.get('total_chunks', '?')
+                    chunk_info = f" (Chunk {chunk_idx} of {total_chunks})"
+                
+                # Use full markdown content (chunks are already appropriately sized)
+                markdown_content = doc.get('markdown', '')
+                # Limit to 2000 chars per chunk to avoid token limits, but this should rarely be needed
+                if len(markdown_content) > 2000:
+                    markdown_content = markdown_content[:2000] + "..."
+                
+                context_parts.append(
+                    f"Source {i+1}{chunk_info} (URL: {url}):\n{markdown_content}"
+                )
+                seen_urls.add(url)
+            
+            context = "\n\n---\n\n".join(context_parts)
             
             # Create prompt
             prompt = ChatPromptTemplate.from_messages([

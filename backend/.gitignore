@@ -83,6 +83,7 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+crawl_chat_db.json
 
 # Temporary files
 *.tmp
