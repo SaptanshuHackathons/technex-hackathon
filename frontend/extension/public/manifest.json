@@ -1,0 +1,24 @@
+{
+    "manifest_version": 3,
+    "name": "Astra - Context AI",
+    "version": "1.0.0",
+    "description": "Premium Context-Aware Chatbot Extension",
+    "permissions": [
+        "activeTab",
+        "scripting"
+    ],
+    "action": {
+        "default_popup": "index.html",
+        "default_title": "Astra"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}
