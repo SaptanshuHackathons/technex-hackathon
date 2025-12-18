@@ -14,19 +14,57 @@ from config import QDRANT_URL, QDRANT_API_KEY, COLLECTION_NAME, EMBEDDING_DIMENS
 
 class VectorStoreService:
     def __init__(self):
-        # Initialize Qdrant client
-        # Supports both Qdrant Cloud (with API key) and local instances
-        if QDRANT_API_KEY:
-            self.client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
-            print(f"Connected to Qdrant Cloud: {QDRANT_URL}")
-        else:
-            # Local Qdrant instance
-            self.client = QdrantClient(url=QDRANT_URL)
-            print(f"Connected to local Qdrant: {QDRANT_URL}")
-
+        # Store connection config but don't connect yet (lazy connection)
+        self.qdrant_url = QDRANT_URL
+        self.qdrant_api_key = QDRANT_API_KEY
         self.collection_name = COLLECTION_NAME
-        self._ensure_collection_exists()
-        self._ensure_payload_indexes()
+        self._client = None  # Will be initialized on first use
+        self._connection_error = None  # Store connection errors
+        
+    def _get_client(self):
+        """Get Qdrant client, creating it if necessary (lazy initialization)."""
+        if self._client is None:
+            if self._connection_error is not None:
+                # Connection previously failed - raise helpful error
+                raise ConnectionError(
+                    f"Qdrant is not available at {self.qdrant_url}. "
+                    f"Please start Qdrant (e.g., 'docker-compose up -d qdrant' or 'docker run -p 6333:6333 qdrant/qdrant'). "
+                    f"Original error: {self._connection_error}"
+                )
+            
+            try:
+                if self.qdrant_api_key:
+                    self._client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key)
+                    print(f"Connected to Qdrant Cloud: {self.qdrant_url}")
+                else:
+                    # Local Qdrant instance
+                    self._client = QdrantClient(url=self.qdrant_url)
+                    print(f"Connected to local Qdrant: {self.qdrant_url}")
+                
+                # Ensure collection exists on first connection
+                self._ensure_collection_exists()
+                self._ensure_payload_indexes()
+            except Exception as e:
+                # Store the error but don't raise - allow server to start
+                self._connection_error = str(e)
+                print(f"Warning: Could not connect to Qdrant at {self.qdrant_url}: {str(e)}")
+                print("Server will start, but vector operations will fail until Qdrant is available.")
+                print("Start Qdrant with: docker-compose up -d qdrant")
+                # Return None to indicate connection failed
+                return None
+        return self._client
+    
+    @property
+    def client(self):
+        """Property to access client with lazy initialization."""
+        client = self._get_client()
+        if client is None:
+            raise ConnectionError(
+                f"Qdrant is not available at {self.qdrant_url}. "
+                f"Please start Qdrant (e.g., 'docker-compose up -d qdrant' or 'docker run -p 6333:6333 qdrant/qdrant'). "
+                f"Original error: {self._connection_error}"
+            )
+        return client
 
     def _generate_stable_id(self, page_id: str) -> int:
         """Generate a stable int64 ID from page_id using SHA256 hash."""
@@ -454,24 +492,9 @@ class VectorStoreService:
                     "metadata": {
                         "chunk_index": payload_data.get("chunk_index"),
                         "total_chunks": payload_data.get("total_chunks"),
-                        "original_page_id": payload_data.get("original_page_id")
-
-                results.append(
-                    {
-                        "page_id": payload_data.get("page_id", ""),
-                        "url": payload_data.get("url", ""),
-                        "base_url": payload_data.get("base_url", ""),
-                        "markdown": payload_data.get("markdown", ""),
-                        "title": payload_data.get("title", ""),
-                        "crawl_id": payload_data.get("crawl_id", ""),
-                        "score": float(score),
-                        "metadata": {
-                            "chunk_index": payload_data.get("chunk_index"),
-                            "total_chunks": payload_data.get("total_chunks"),
-                            "original_page_id": payload_data.get("original_page_id"),
-                        },
+                        "original_page_id": payload_data.get("original_page_id"),
                     }
-                )
+                })
 
             return results
         except Exception as e:
