@@ -43,11 +43,6 @@ export function URLInput({ className }: { className?: string }) {
             />
 
             <div className="flex items-center gap-2">
-                {/* Options (Mock) */}
-                <div className="hidden sm:flex items-center gap-1 rounded-lg border border-black/5 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-500 dark:border-white/5 dark:bg-zinc-900 dark:text-zinc-400">
-                    <Search className="h-3 w-3" />
-                    <span>Search</span>
-                </div>
 
                 <button
                     type="submit"

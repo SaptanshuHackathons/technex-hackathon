@@ -75,8 +75,8 @@ export function Pricing() {
                         <button
                             onClick={() => setIsAnnual(false)}
                             className={`rounded-md px-6 py-2 text-sm font-medium transition-all ${!isAnnual
-                                    ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white"
-                                    : "text-gray-600 dark:text-gray-400"
+                                ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white"
+                                : "text-gray-600 dark:text-gray-400"
                                 }`}
                         >
                             Monthly billing
@@ -84,8 +84,8 @@ export function Pricing() {
                         <button
                             onClick={() => setIsAnnual(true)}
                             className={`rounded-md px-6 py-2 text-sm font-medium transition-all ${isAnnual
-                                    ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white"
-                                    : "text-gray-600 dark:text-gray-400"
+                                ? "bg-white text-black shadow-sm dark:bg-zinc-800 dark:text-white"
+                                : "text-gray-600 dark:text-gray-400"
                                 }`}
                         >
                             Annual billing
@@ -106,8 +106,8 @@ export function Pricing() {
                         >
                             {/* Popular Badge */}
                             {plan.popular && (
-                                <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                                    <div className="rounded-full bg-gradient-to-r from-purple-600 to-purple-500 px-4 py-1 text-xs font-semibold text-white shadow-lg">
+                                <div className="absolute -top-5 left-0 right-0 flex justify-center z-20">
+                                    <div className="rounded-full bg-linear-to-r from-[#ff4500] to-[#ff8c00] px-5 py-1.5 text-xs font-semibold text-white shadow-lg">
                                         Most popular plan
                                     </div>
                                 </div>
@@ -115,13 +115,13 @@ export function Pricing() {
 
                             <div
                                 className={`group relative overflow-hidden rounded-3xl border bg-white p-8 shadow-lg transition-all duration-300 hover:shadow-2xl dark:bg-zinc-900 ${plan.popular
-                                        ? "border-purple-500/50 dark:border-purple-500/50"
-                                        : "border-black/5 dark:border-white/10"
+                                    ? "border-[#ff4500]/50 dark:border-[#ff4500]/50"
+                                    : "border-black/5 dark:border-white/10"
                                     }`}
                             >
                                 {/* Background Gradient */}
                                 {plan.popular && (
-                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-transparent" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-[#ff4500]/5 via-transparent to-transparent" />
                                 )}
 
                                 <div className="relative z-10">
@@ -166,8 +166,8 @@ export function Pricing() {
                                     <div className="space-y-3">
                                         <Button
                                             className={`w-full rounded-xl py-6 font-semibold transition-all ${plan.popular
-                                                    ? "bg-gradient-to-r from-purple-600 to-purple-500 text-white hover:from-purple-700 hover:to-purple-600 shadow-lg shadow-purple-500/25"
-                                                    : "bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/90"
+                                                ? "bg-gradient-to-r from-[#ff4500] to-[#ff8c00] text-white hover:from-[#ff5500] hover:to-[#ff9c00] shadow-lg shadow-[#ff4500]/25"
+                                                : "bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/90"
                                                 }`}
                                         >
                                             Get started

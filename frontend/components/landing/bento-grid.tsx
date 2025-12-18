@@ -174,7 +174,7 @@ export function BentoGrid() {
                     </div>
 
                     {/* Webhook Delivery - Small Bottom Right 2 */}
-                    <div className="md:col-span-1 group relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl transition-all duration-300">
+                    {/* <div className="md:col-span-1 group relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl transition-all duration-300">
                         <div className="p-6 relative z-10 flex flex-col h-full">
                             <div className="mb-4 p-2.5 w-fit rounded-xl bg-pink-100 dark:bg-pink-500/10 text-pink-600 dark:text-pink-400">
                                 <Webhook className="w-6 h-6" />
@@ -193,7 +193,7 @@ export function BentoGrid() {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                 </div>
             </div>
