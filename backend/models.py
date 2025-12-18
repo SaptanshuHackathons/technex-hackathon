@@ -21,6 +21,7 @@ class ScrapeResponse(BaseModel):
     success: bool
     pages: List[PageInfo]
     crawl_id: str  # Unique ID for this crawl session
+    chat_id: str  # Chat session ID created during scraping
     message: Optional[str] = None
 
 

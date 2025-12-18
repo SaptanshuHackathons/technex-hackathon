@@ -2,33 +2,102 @@
 
 import { cn } from "@/lib/utils";
 import {
-    BookOpen,
     ChevronDown,
-    Clock,
+    ChevronRight,
     ExternalLink,
     FileText,
-    Link2,
-    MessageSquare,
     Plus,
-    Sparkles
+    Sparkles,
+    MessageSquare,
+    Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { mockCitations, mockIndexedPages, mockPreviousChats } from "@/lib/mock-data";
 import * as React from "react";
+import { useChatStore } from "@/lib/store";
+import { TreeNode } from "@/lib/api";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface SidebarProps {
     className?: string;
 }
 
-export function ChatSidebar({ className }: SidebarProps) {
-    const [expandedSections, setExpandedSections] = React.useState({
-        citations: true,
-        indexed: true,
-        chats: true,
-    });
+// Recursive Tree Node Component
+function TreeNodeComponent({ node, level = 0 }: { node: TreeNode; level?: number }) {
+    const [isExpanded, setIsExpanded] = React.useState(level < 2); // Auto-expand first 2 levels
 
-    const toggleSection = (section: keyof typeof expandedSections) => {
-        setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    const hasChildren = node.children && node.children.length > 0;
+
+    return (
+        <div>
+            <div
+                className={cn(
+                    "group flex items-start gap-1 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50 dark:hover:bg-zinc-900 cursor-pointer",
+                    level > 0 && "ml-4"
+                )}
+                onClick={() => hasChildren && setIsExpanded(!isExpanded)}
+            >
+                {hasChildren ? (
+                    isExpanded ? (
+                        <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    ) : (
+                        <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    )
+                ) : (
+                    <div className="w-3.5 shrink-0" />
+                )}
+                <a
+                    href={node.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 truncate text-gray-700 group-hover:text-black dark:text-gray-300 dark:group-hover:text-white flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <span className="truncate">{node.title}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+            </div>
+            {hasChildren && isExpanded && (
+                <div>
+                    {node.children.map((child) => (
+                        <TreeNodeComponent key={child.id} node={child} level={level + 1} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export function ChatSidebar({ className }: SidebarProps) {
+    const { pageTree, isLoadingTree, chatId, setChatId, previousChats, loadPreviousChats, isLoadingChats } = useChatStore();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    // Load chat ID from URL on mount
+    React.useEffect(() => {
+        const urlChatId = searchParams.get("id");
+        if (urlChatId && urlChatId !== chatId) {
+            setChatId(urlChatId);
+        }
+    }, [searchParams, chatId, setChatId]);
+
+    // Load previous chats on mount
+    React.useEffect(() => {
+        loadPreviousChats();
+    }, [loadPreviousChats]);
+
+    const formatTimeAgo = (dateString: string) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
     };
 
     return (
@@ -41,100 +110,80 @@ export function ChatSidebar({ className }: SidebarProps) {
                     </div>
                     <span className="font-bold text-lg">BeeBot</span>
                 </div>
-                <Button size="icon" variant="ghost" className="h-8 w-8">
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => window.location.href = "/"}
+                >
                     <Plus className="h-4 w-4" />
                 </Button>
             </div>
 
             {/* Scrollable Content */}
             <div className="flex-1 space-y-6 overflow-y-auto px-2">
-                {/* Citations Section */}
+                {/* Previous Chats Section */}
                 <div>
-                    <button
-                        onClick={() => toggleSection("citations")}
-                        className="mb-3 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                    >
-                        <div className="flex items-center gap-2">
-                            <Link2 className="h-3.5 w-3.5" />
-                            <span>Citations</span>
-                        </div>
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expandedSections.citations && "-rotate-90")} />
-                    </button>
-                    {expandedSections.citations && (
-                        <div className="space-y-2">
-                            {mockCitations.map((citation) => (
-                                <a
-                                    key={citation.id}
-                                    href={citation.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="group flex items-start gap-2 rounded-lg p-2 text-sm hover:bg-gray-50 dark:hover:bg-zinc-900"
+                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        <span>Previous Chats</span>
+                    </div>
+
+                    {isLoadingChats ? (
+                        <div className="text-sm text-gray-500 px-2">Loading...</div>
+                    ) : !previousChats || previousChats.length === 0 ? (
+                        <div className="text-sm text-gray-500 px-2">No previous chats</div>
+                    ) : (
+                        <div className="space-y-1">
+                            {previousChats.slice(0, 10).map((chat) => {
+                                const displayName = chat.title || 
+                                    (chat.url ? new URL(chat.url).hostname : "Unknown");
+                                const truncatedName = displayName.length > 35 
+                                    ? displayName.substring(0, 35) + "..." 
+                                    : displayName;
+                                
+                                return (
+                                <div
+                                    key={chat.id}
+                                    className={cn(
+                                        "group flex items-start gap-2 rounded-lg px-2 py-2 text-sm cursor-pointer transition-colors",
+                                        chat.id === chatId
+                                            ? "bg-gray-100 dark:bg-zinc-800"
+                                            : "hover:bg-gray-50 dark:hover:bg-zinc-900"
+                                    )}
+                                    onClick={() => router.push(`/chat?id=${chat.id}`)}
                                 >
-                                    <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                    <span className="flex-1 truncate text-gray-700 group-hover:text-black dark:text-gray-300 dark:group-hover:text-white">
-                                        {citation.title}
-                                    </span>
-                                </a>
-                            ))}
+                                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="truncate text-gray-700 dark:text-gray-300 font-medium" title={displayName}>
+                                            {truncatedName}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-500">
+                                            {formatTimeAgo(chat.created_at)} • {chat.page_count} page{chat.page_count !== 1 ? 's' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
 
                 {/* Indexed Pages Section */}
                 <div>
-                    <button
-                        onClick={() => toggleSection("indexed")}
-                        className="mb-3 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                    >
-                        <div className="flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5" />
-                            <span>Indexed Pages</span>
-                        </div>
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expandedSections.indexed && "-rotate-90")} />
-                    </button>
-                    {expandedSections.indexed && (
-                        <div className="space-y-1">
-                            {mockIndexedPages.map((page) => (
-                                <a
-                                    key={page.id}
-                                    href={page.url}
-                                    className="block truncate rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-black dark:text-gray-400 dark:hover:bg-zinc-900 dark:hover:text-white"
-                                >
-                                    {page.title}
-                                </a>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                    <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <FileText className="h-3.5 w-3.5" />
+                        <span>Indexed Pages</span>
+                    </div>
 
-                {/* Previous Chats Section */}
-                <div>
-                    <button
-                        onClick={() => toggleSection("chats")}
-                        className="mb-3 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                    >
-                        <div className="flex items-center gap-2">
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            <span>Previous Chats</span>
-                        </div>
-                        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !expandedSections.chats && "-rotate-90")} />
-                    </button>
-                    {expandedSections.chats && (
-                        <div className="space-y-2">
-                            {mockPreviousChats.map((chat) => (
-                                <a
-                                    key={chat.id}
-                                    href="#"
-                                    className="block rounded-lg p-2 hover:bg-gray-50 dark:hover:bg-zinc-900"
-                                >
-                                    <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {chat.title}
-                                    </p>
-                                    <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                                        <Clock className="h-3 w-3" />
-                                        <span>{chat.timestamp}</span>
-                                    </div>
-                                </a>
+                    {isLoadingTree ? (
+                        <div className="text-sm text-gray-500 px-2">Loading...</div>
+                    ) : !pageTree || pageTree.length === 0 ? (
+                        <div className="text-sm text-gray-500 px-2">No pages indexed yet</div>
+                    ) : (
+                        <div className="space-y-1">
+                            {pageTree.map((node) => (
+                                <TreeNodeComponent key={node.url} node={node} />
                             ))}
                         </div>
                     )}
@@ -146,7 +195,7 @@ export function ChatSidebar({ className }: SidebarProps) {
                 <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-900">
                     <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500" />
                     <div className="flex flex-col">
-                        <span className="text-sm font-medium">User Name</span>
+                        <span className="text-sm font-medium">User</span>
                         <span className="text-xs text-gray-500">Free Plan</span>
                     </div>
                 </div>

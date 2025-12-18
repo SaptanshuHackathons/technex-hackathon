@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import config  # Load environment variables first
 from routes import router
 
 app = FastAPI(
     title="Web Scraper & RAG Chatbot API",
     description="Backend API for web scraping and RAG-powered chatbot",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Configure CORS for Next.js frontend
@@ -38,8 +39,8 @@ async def root():
             "create_chat": "POST /api/chats",
             "get_chat": "GET /api/chats/{chat_id}",
             "list_crawls": "GET /api/crawls",
-            "get_crawl": "GET /api/crawls/{crawl_id}"
-        }
+            "get_crawl": "GET /api/crawls/{crawl_id}",
+        },
     }
 
 
@@ -51,4 +52,5 @@ async def health_check():
 # Run the server if this file is executed directly
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -93,5 +93,66 @@ Please provide a comprehensive answer based on the context above. Include source
             
         except Exception as e:
             raise Exception(f"RAG response generation failed: {str(e)}")
+    
+    async def generate_content_summary(
+        self,
+        pages_data: List[Dict[str, Any]],
+        domain: str,
+        max_pages_to_analyze: int = 5
+    ) -> str:
+        """
+        Generate an AI-powered summary of scraped content.
+        
+        Args:
+            pages_data: List of scraped page data
+            domain: Domain name of the website
+            max_pages_to_analyze: Number of pages to analyze for summary
+            
+        Returns:
+            AI-generated summary as a string
+        """
+        try:
+            # Get sample content from the first few pages
+            pages_to_analyze = pages_data[:max_pages_to_analyze]
+            
+            # Build content overview
+            content_parts = []
+            for idx, page in enumerate(pages_to_analyze):
+                title = page.get('metadata', {}).get('title', 'Untitled')
+                markdown = page.get('markdown', '')
+                # Limit content to first 1500 chars per page for summary
+                preview = markdown[:1500] + "..." if len(markdown) > 1500 else markdown
+                content_parts.append(f"Page {idx + 1}: {title}\n{preview}")
+            
+            content_overview = "\n\n---\n\n".join(content_parts)
+            
+            # Get all page titles for comprehensive listing
+            all_titles = [p.get('metadata', {}).get('title', 'Untitled') for p in pages_data]
+            
+            prompt = f"""Based on the following scraped web content from {domain}, generate a professional summary (2-3 paragraphs) that describes:
+1. The main topics and themes covered across the pages
+2. The type of information available (educational, technical documentation, news, etc.)
+3. What a user can learn or discover from this content
 
+Website: {domain}
+Total pages indexed: {len(pages_data)}
 
+Sample content from first {len(pages_to_analyze)} pages:
+{content_overview}
+
+All page titles: {', '.join(all_titles[:10])}{"..." if len(all_titles) > 10 else ""}
+
+Generate a clear, informative summary that helps users understand what knowledge is available in this indexed content. Be professional and concise."""
+
+            messages = [
+                SystemMessage(content="You are a professional content analyst that creates clear, informative summaries of web content."),
+                HumanMessage(content=prompt)
+            ]
+            
+            response = await self.llm.ainvoke(messages)
+            return response.content
+            
+        except Exception as e:
+            print(f"Error generating content summary: {str(e)}")
+            # Return a basic summary as fallback
+            return f"Successfully indexed {len(pages_data)} pages from {domain}. The content is now available for questions and analysis."
