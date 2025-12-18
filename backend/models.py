@@ -10,6 +10,7 @@ class ScrapeRequest(BaseModel):
 class PageInfo(BaseModel):
     page_id: str
     url: str
+    base_url: Optional[str] = None
     markdown: str
     metadata: Dict[str, Any]
 
@@ -23,6 +24,7 @@ class ScrapeResponse(BaseModel):
 class QueryRequest(BaseModel):
     query: str
     limit: Optional[int] = 5
+    base_url: Optional[str] = None  # Filter results by website base URL
 
 
 class Source(BaseModel):

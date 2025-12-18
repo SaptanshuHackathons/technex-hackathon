@@ -45,13 +45,14 @@ async def scrape_website(request: ScrapeRequest):
                 try:
                     embedding = await embedding_service.generate_embeddings([markdown])
                     
-                    # Store in vector database
+                    # Store in vector database with base_url for website separation
                     await vector_store_service.store_embeddings(
                         page_id=page_data["page_id"],
                         url=page_data["url"],
                         markdown=markdown,
                         embedding=embedding[0],
-                        metadata=page_data.get("metadata", {})
+                        metadata=page_data.get("metadata", {}),
+                        base_url=page_data.get("base_url")
                     )
                 except Exception as e:
                     print(f"Warning: Failed to generate/store embedding for {page_data['url']}: {str(e)}")
@@ -60,6 +61,7 @@ async def scrape_website(request: ScrapeRequest):
             page_info = PageInfo(
                 page_id=page_data["page_id"],
                 url=page_data["url"],
+                base_url=page_data.get("base_url"),
                 markdown=markdown,
                 metadata=page_data.get("metadata", {})
             )
@@ -114,10 +116,11 @@ async def query_rag(request: QueryRequest):
         # Generate embedding for the query
         query_embedding = await embedding_service.generate_query_embedding(request.query)
         
-        # Search for similar documents
+        # Search for similar documents (filtered by base_url if provided)
         similar_docs = await vector_store_service.search_similar(
             query_embedding=query_embedding,
-            limit=request.limit
+            limit=request.limit,
+            base_url=request.base_url
         )
         
         if not similar_docs:

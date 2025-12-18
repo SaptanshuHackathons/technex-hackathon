@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from config import QDRANT_URL, QDRANT_API_KEY, COLLECTION_NAME, EMBEDDING_DIMENSION
 
 
@@ -124,7 +124,8 @@ class VectorStoreService:
         url: str,
         markdown: str,
         embedding: List[float],
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
+        base_url: Optional[str] = None
     ) -> bool:
         """
         Store a page embedding in Qdrant.
@@ -135,6 +136,7 @@ class VectorStoreService:
             markdown: Page markdown content
             embedding: Embedding vector
             metadata: Additional metadata
+            base_url: Base URL of the website (for filtering)
             
         Returns:
             True if successful
@@ -146,6 +148,7 @@ class VectorStoreService:
                 payload={
                     "page_id": page_id,
                     "url": url,
+                    "base_url": base_url or url,  # Use base_url if provided, otherwise use url
                     "markdown": markdown,
                     "title": metadata.get("title", ""),
                     "description": metadata.get("description", ""),
@@ -164,7 +167,8 @@ class VectorStoreService:
     async def search_similar(
         self, 
         query_embedding: List[float], 
-        limit: int = 5
+        limit: int = 5,
+        base_url: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for similar documents using query embedding.
@@ -172,36 +176,71 @@ class VectorStoreService:
         Args:
             query_embedding: Query embedding vector
             limit: Maximum number of results
+            base_url: Optional base URL to filter results by website
             
         Returns:
             List of similar documents with scores
         """
         try:
-            # Use query_points with a simple query vector
-            # For single vector collections, pass the vector directly
-            search_results = self.client.query_points(
-                collection_name=self.collection_name,
-                query=query_embedding,  # Pass vector directly
-                limit=limit,
-                with_payload=True
-            )
+            # Use HTTP API directly since client methods vary by version
+            # This approach works with any Qdrant version
+            import httpx
+            
+            # Convert embedding to list of regular Python floats (handle numpy float32)
+            # This ensures JSON serialization works
+            query_vector = [float(x) for x in query_embedding]
+            
+            # Build search payload
+            search_url = f"{QDRANT_URL}/collections/{self.collection_name}/points/search"
+            headers = {"Content-Type": "application/json"}
+            if QDRANT_API_KEY:
+                headers["api-key"] = QDRANT_API_KEY
+            
+            payload = {
+                "vector": query_vector,
+                "limit": limit,
+                "with_payload": True
+            }
+            
+            # Add filter if base_url is provided
+            if base_url:
+                payload["filter"] = {
+                    "must": [{
+                        "key": "base_url",
+                        "match": {"value": base_url}
+                    }]
+                }
+            
+            # Make HTTP request to Qdrant API
+            response = httpx.post(search_url, json=payload, headers=headers, timeout=30.0)
+            response.raise_for_status()
+            result_data = response.json()
+            points = result_data.get("result", [])
             
             results = []
-            # QueryResponse has a points attribute containing ScoredPoint objects
-            points = search_results.points if hasattr(search_results, 'points') else []
-            
+            # Process points (list of dicts from HTTP API)
             for point in points:
-                # ScoredPoint has payload and score attributes
-                payload = point.payload if hasattr(point, 'payload') else {}
-                score = getattr(point, 'score', 0.0)
+                # HTTP API returns dicts with 'payload' and 'score' keys
+                if isinstance(point, dict):
+                    payload = point.get("payload", {})
+                    score = point.get("score", 0.0)
+                else:
+                    # Fallback for object format
+                    payload = point.payload if hasattr(point, 'payload') else {}
+                    score = getattr(point, 'score', 0.0)
                 
                 # Ensure payload is a dict
                 if not isinstance(payload, dict):
                     payload = {}
                 
+                # If base_url filter was applied, double-check (defensive)
+                if base_url and payload.get("base_url") != base_url:
+                    continue
+                
                 results.append({
                     "page_id": payload.get("page_id", ""),
                     "url": payload.get("url", ""),
+                    "base_url": payload.get("base_url", ""),
                     "markdown": payload.get("markdown", ""),
                     "title": payload.get("title", ""),
                     "score": float(score)
