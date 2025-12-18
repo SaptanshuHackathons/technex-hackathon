@@ -85,6 +85,10 @@ logs/
 *.sqlite3
 crawl_chat_db.json
 
+# Qdrant storage
+qdrant_storage/
+qdrant_config/
+
 # Temporary files
 *.tmp
 *.temp

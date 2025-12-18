@@ -41,13 +41,43 @@ QDRANT_URL=http://localhost:6333
 # QDRANT_API_KEY=your_qdrant_cloud_api_key  # Only needed for Qdrant Cloud
 ```
 
-### 3. Set Up Local Qdrant
+### 3. Set Up Local Qdrant with Persistence
 
-Run Qdrant locally using Docker:
+**Option A: Using Docker Compose (Recommended - with persistence)**
+
+Run Qdrant with persistent storage using Docker Compose:
+
+```bash
+cd backend
+docker-compose up -d qdrant
+```
+
+This will:
+- Start Qdrant with data persisted to `./qdrant_storage/`
+- Automatically restart if the container stops
+- Preserve all embeddings and collections across restarts
+
+**Option B: Using Docker directly (with persistence)**
+
+Run Qdrant with a volume mount for persistence:
+
+```bash
+docker run -d \
+  --name qdrant \
+  -p 6333:6333 \
+  -p 6334:6334 \
+  -v $(pwd)/qdrant_storage:/qdrant/storage \
+  --restart unless-stopped \
+  qdrant/qdrant
+```
+
+**Option C: Using Docker without persistence (data lost on restart)**
 
 ```bash
 docker run -p 6333:6333 qdrant/qdrant
 ```
+
+⚠️ **Warning**: Without volume mounts, all embeddings will be lost when the container stops!
 
 The default configuration uses local Qdrant at `http://localhost:6333`. No API key is required for local instances.
 
@@ -235,11 +265,19 @@ backend/
 - Each chat session is linked to a specific crawl via `chat_id`
 - Queries only search within the associated crawl's content
 - Multiple chats can be created for the same crawl
+- **Chat sessions persist across server restarts** (stored in `crawl_chat_db.json`)
 
-### Local Qdrant
+### Local Qdrant with Persistence
 - Uses local Qdrant instance (no cloud API required)
 - All vectors stored locally in Qdrant
+- **Embeddings persist across Docker container restarts** (when using volume mounts)
+- Collections are automatically detected and reused on restart
 - Metadata stored in JSON file (`crawl_chat_db.json`)
+
+### Data Persistence
+- **Chat metadata**: Persisted in `crawl_chat_db.json` (survives server restarts)
+- **Embeddings**: Persisted in Qdrant storage directory (survives container restarts when using volumes)
+- **Automatic recovery**: Collections and data are automatically loaded when Qdrant restarts
 
 ## Notes
 

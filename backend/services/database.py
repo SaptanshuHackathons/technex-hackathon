@@ -11,7 +11,14 @@ import os
 
 class DatabaseService:
     def __init__(self, db_file: str = "crawl_chat_db.json"):
-        self.db_file = db_file
+        # Use absolute path to ensure persistence
+        if not os.path.isabs(db_file):
+            # Store in backend directory
+            backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.db_file = os.path.join(backend_dir, db_file)
+        else:
+            self.db_file = db_file
+        
         self.crawls: Dict[str, Dict[str, Any]] = {}
         self.chats: Dict[str, Dict[str, Any]] = {}  # chat_id -> crawl_id mapping
         self._load_db()
@@ -24,10 +31,15 @@ class DatabaseService:
                     data = json.load(f)
                     self.crawls = data.get("crawls", {})
                     self.chats = data.get("chats", {})
+                    crawl_count = len(self.crawls)
+                    chat_count = len(self.chats)
+                    print(f"Loaded database: {crawl_count} crawls, {chat_count} chats from {self.db_file}")
             except Exception as e:
                 print(f"Warning: Could not load database: {str(e)}")
                 self.crawls = {}
                 self.chats = {}
+        else:
+            print(f"Database file not found, starting fresh: {self.db_file}")
     
     def _save_db(self):
         """Save database to JSON file."""

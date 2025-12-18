@@ -111,7 +111,16 @@ class VectorStoreService:
                     # Couldn't determine dimension, but collection exists - assume it's correct
                     print(f"Using existing Qdrant collection: {self.collection_name} (could not verify dimension)")
                 else:
-                    print(f"Using existing Qdrant collection: {self.collection_name} (dimension: {existing_dim})")
+                    # Try to get point count to show data persistence
+                    try:
+                        collection_info = self.client.get_collection(self.collection_name)
+                        point_count = getattr(collection_info, 'points_count', None)
+                        if point_count is not None:
+                            print(f"Using existing Qdrant collection: {self.collection_name} (dimension: {existing_dim}, points: {point_count})")
+                        else:
+                            print(f"Using existing Qdrant collection: {self.collection_name} (dimension: {existing_dim})")
+                    except Exception:
+                        print(f"Using existing Qdrant collection: {self.collection_name} (dimension: {existing_dim})")
         except Exception as e:
             print(f"Error ensuring collection exists: {str(e)}")
             # Re-raise if it's a critical error
@@ -144,6 +153,9 @@ class VectorStoreService:
             True if successful
         """
         try:
+            # Ensure collection exists before storing (handles race conditions)
+            self._ensure_collection_exists()
+            
             # Build payload with all metadata
             payload = {
                 "page_id": page_id,
@@ -169,10 +181,24 @@ class VectorStoreService:
                 payload=payload
             )
             
-            self.client.upsert(
-                collection_name=self.collection_name,
-                points=[point]
-            )
+            try:
+                self.client.upsert(
+                    collection_name=self.collection_name,
+                    points=[point]
+                )
+            except Exception as upsert_error:
+                error_msg = str(upsert_error)
+                # If collection doesn't exist, try to recreate it and retry once
+                if "doesn't exist" in error_msg.lower() or "not found" in error_msg.lower():
+                    print(f"Collection {self.collection_name} not found during upsert, recreating...")
+                    self._ensure_collection_exists()
+                    # Retry the upsert
+                    self.client.upsert(
+                        collection_name=self.collection_name,
+                        points=[point]
+                    )
+                else:
+                    raise
             
             return True
         except Exception as e:
