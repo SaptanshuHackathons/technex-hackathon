@@ -1,0 +1,23 @@
+# Core FastAPI
+fastapi[standard]>=0.100.0,<0.130.0
+uvicorn[standard]>=0.20.0,<0.40.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.5
+
+# Web Scraping
+firecrawl-py>=0.0.20
+
+# LangChain
+langchain>=0.1.0,<0.4.0
+langchain-google-genai>=1.0.0,<3.0.0
+
+# Embeddings - Hugging Face Inference API
+huggingface_hub>=0.20.0
+
+# Vector Database
+qdrant-client>=1.0.0,<2.0.0
+
+# HTTP & Data
+httpx>=0.24.0,<0.29.0
+pydantic>=2.0.0,<3.0.0
+
