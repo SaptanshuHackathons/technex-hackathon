@@ -32,6 +32,8 @@ export function AstraRoot({ children, ...config }: AstraRootProps) {
                 siteId={config.siteId}
                 apiEndpoint={config.apiEndpoint}
                 initialMessage={config.initialMessage}
+                chatId={config.chatId}
+                crawlId={config.crawlId}
             >
                 <div
                     className={`astra-widget-container position-${position} ${customClass}`}

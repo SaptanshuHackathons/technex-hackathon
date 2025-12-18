@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from typing import List
+from typing import List, Optional
 from collections import OrderedDict
 import uuid
 import json
@@ -690,6 +690,7 @@ async def get_crawl(crawl_id: str):
     return crawl
 
 
+
 @router.get("/crawls/{crawl_id}/tree")
 async def get_crawl_tree(crawl_id: str):
     """
@@ -736,11 +737,13 @@ async def get_chat_messages(chat_id: str):
     return {"chat_id": chat_id, "messages": messages}
 
 
+
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     """
     Query the RAG system with a user question.
     Returns an answer with sources, filtered by chat_id (which maps to a crawl_id).
+    Saves both user query and assistant response to Supabase.
     """
     try:
         # Get crawl_id from chat_id
@@ -754,6 +757,13 @@ async def query_rag(request: QueryRequest):
                 detail=f"Chat ID '{request.chat_id}' not found. Please create a chat session first.",
             )
 
+        # Save user message to database
+        db_service.add_message(
+            chat_id=request.chat_id,
+            role="user",
+            content=request.query
+        )
+        
         # Generate embedding for the query
         query_embedding = await embedding_service.generate_query_embedding(
             request.query
@@ -787,18 +797,17 @@ async def query_rag(request: QueryRequest):
             for doc in rag_response["sources"]
         ]
 
-        # Store user message and AI response
-        db_service.store_message(request.chat_id, "user", request.query)
-
-        # Convert sources to dict for storage
-        sources_dict = [
-            {"url": s.url, "title": s.title, "score": s.score} for s in sources
-        ]
-
-        db_service.store_message(
-            request.chat_id, "ai", rag_response["answer"], sources=sources_dict
+        # Save assistant message to database with sources
+        db_service.add_message(
+            chat_id=request.chat_id,
+            role="assistant",
+            content=rag_response["answer"],
+            metadata={
+                "sources": [{"url": s.url, "title": s.title, "score": s.score} for s in sources],
+                **rag_response["metadata"]
+            }
         )
-
+        
         return QueryResponse(
             answer=rag_response["answer"],
             sources=sources,
@@ -1103,3 +1112,35 @@ Now provide the summary following this exact format:"""
             status_code=500,
             detail=f"Summarization failed: {str(e)}"
         )
+
+
+@router.get("/chats/{chat_id}/history")
+async def get_chat_history(chat_id: str, limit: Optional[int] = None):
+    """
+    Get chat message history by chat_id.
+    Returns messages ordered by creation time.
+    """
+    try:
+        # Verify chat exists
+        chat = db_service.get_chat(chat_id)
+        if not chat:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Chat ID '{chat_id}' not found"
+            )
+        
+        messages = db_service.get_messages(chat_id, limit)
+        return {
+            "chat_id": chat_id,
+            "messages": messages,
+            "count": len(messages)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve chat history: {str(e)}"
+        )
+
+

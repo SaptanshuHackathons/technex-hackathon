@@ -24,6 +24,10 @@ HUGGINGFACE_API_URL = f"https://router.huggingface.co/hf-inference/models/{EMBED
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", None)  # None for local Qdrant
 
+# Supabase Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 # Vector Store Configuration
 COLLECTION_NAME = "scraped_pages"
 WIDGET_COLLECTION_NAME = "widget_embeddings"  # Separate collection for widget sites

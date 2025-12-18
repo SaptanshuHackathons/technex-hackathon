@@ -5,10 +5,12 @@ Uses singleton pattern for connection pooling.
 """
 
 import os
+import uuid
 from typing import Dict, Optional, Any, List
 from supabase import create_client, Client
 from datetime import datetime
 from functools import lru_cache
+from config import SUPABASE_URL, SUPABASE_KEY
 
 
 @lru_cache(maxsize=1)
@@ -17,24 +19,25 @@ def _get_supabase_client() -> Client:
     Get singleton Supabase client instance.
     Uses lru_cache to ensure only one client is created.
     """
-    supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_KEY")
-
-    if not supabase_url or not supabase_key:
+    if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError(
             "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
         )
 
-    client = create_client(supabase_url, supabase_key)
-    print(f"Connected to Supabase at {supabase_url}")
+    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print(f"Connected to Supabase at {SUPABASE_URL}")
     return client
+
 
 
 class DatabaseService:
     def __init__(self):
         # Use singleton client for connection pooling
         self.supabase: Client = _get_supabase_client()
-
+        # Alias for compatibility
+        self.widget_supabase = self.supabase
+        print(f"DatabaseService initialized with Supabase")
+    
     def create_crawl(self, url: str, crawl_id: Optional[str] = None) -> str:
         """
         Create a new crawl session.
@@ -46,7 +49,7 @@ class DatabaseService:
         Returns:
             The crawl_id
         """
-        data = {"url": url}
+        data = {"url": url, "page_count": 0}
         if crawl_id:
             data["id"] = crawl_id
 
@@ -104,6 +107,7 @@ class DatabaseService:
         )
         return result.data if result.data else []
 
+
     def create_chat(self, crawl_id: str, chat_id: Optional[str] = None) -> str:
         """
         Create a new chat session linked to a crawl.
@@ -127,12 +131,59 @@ class DatabaseService:
         result = self.supabase.table("chats").select("*").eq("id", chat_id).execute()
         return result.data[0] if result.data else None
 
+
     def get_crawl_id_from_chat_id(self, chat_id: str) -> Optional[str]:
         """Get the crawl_id associated with a chat_id."""
         chat = self.get_chat(chat_id)
         if chat:
             return chat.get("crawl_id")
         return None
+    
+    def add_message(self, chat_id: str, role: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Add a message to a chat.
+        
+        Args:
+            chat_id: The chat ID
+            role: 'user' or 'assistant'
+            content: Message content
+            metadata: Optional metadata (e.g., sources, model info)
+            
+        Returns:
+            The message_id
+        """
+        message_id = str(uuid.uuid4())
+        data = {
+            "id": message_id,
+            "chat_id": chat_id,
+            "role": role,
+            "content": content,
+            "metadata": metadata or {}
+        }
+        
+        self.supabase.table("messages").insert(data).execute()
+        return message_id
+    
+    def get_messages(self, chat_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Get messages for a chat, ordered by creation time.
+        
+        Args:
+            chat_id: The chat ID
+            limit: Optional limit on number of messages to return (most recent)
+            
+        Returns:
+            List of messages
+        """
+        query = self.supabase.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=False)
+        
+        if limit:
+            query = query.limit(limit)
+        
+        response = query.execute()
+        return response.data
+
+
 
     def store_page(
         self,

@@ -3,7 +3,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { AstraConfig, AstraInitStatus } from '../types/config';
 
+
 export type { AstraAppearance, AstraConfig } from '../types/config';
+
 
 interface AstraContextValue {
   config: AstraConfig;
@@ -56,7 +58,7 @@ export function AstraProvider({ config, children }: AstraProviderProps) {
         }
 
         const data = await response.json();
-        
+
         setInitStatus({
           isReady: data.has_embeddings,
           isInitializing: false,
@@ -101,7 +103,7 @@ export function AstraProvider({ config, children }: AstraProviderProps) {
       }
 
       const data = await response.json();
-      
+
       setInitStatus({
         isReady: true,
         isInitializing: false,

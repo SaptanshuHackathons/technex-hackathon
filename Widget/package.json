@@ -1,0 +1,25 @@
+{
+    "name": "@astra/widget",
+    "version": "1.0.0",
+    "description": "Astra AI Chatbot Widget - A reusable React component",
+    "main": "index.ts",
+    "types": "index.ts",
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "peerDependencies": {
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+    },
+    "devDependencies": {
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "typescript": "^5"
+    },
+    "keywords": [
+        "chatbot",
+        "ai",
+        "react",
+        "widget"
+    ]
+}

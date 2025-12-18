@@ -9,13 +9,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Configure CORS for Next.js frontend
+# Configure CORS - Allow all origins for development (including file:// protocol for widget demo)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=False,  # Must be False when allow_origins is "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )

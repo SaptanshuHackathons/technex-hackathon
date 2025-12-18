@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astra Widget Demo - RAG Chatbot Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: #333;
+        }
+
+        .demo-container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 1.5rem;
+            padding: 3rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #fff8f5 0%, #ffe9e0 100%);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid #ffe0d4;
+        }
+
+        .feature-card h3 {
+            color: #ff6b35;
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+        }
+
+        .feature-card p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .setup-section {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            border: 2px solid #e5e7eb;
+            margin-bottom: 2rem;
+        }
+
+        .setup-section h2 {
+            color: #1a1a1a;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .code-block {
+            background: #1a1a1a;
+            color: #f0f0f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(255, 107, 53, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status.info {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="demo-container">
+        <h1>🚀 Astra RAG Widget Demo</h1>
+        <p>Test the AI-powered chatbot widget with context-aware responses from crawled website data.</p>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h3>💬 Smart Conversations</h3>
+                <p>Chat with an AI that understands your website content perfectly.</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔍 RAG Pipeline</h3>
+                <p>Retrieval-Augmented Generation for accurate, hallucination-free answers.</p>
+            </div>
+            <div class="feature-card">
+                <h3>💾 Persistent History</h3>
+                <p>Chat history saved to Supabase - reload anytime without losing context.</p>
+            </div>
+        </div>
+
+        <div class="setup-section">
+            <h2>⚙️ Setup & Test</h2>
+            <p><strong>Step 1:</strong> Configure the URLs to crawl (example.com is used here)</p>
+            <div class="code-block">
+                {
+                "base_url": "https://example.com",
+                "routes": [
+                "https://example.com"
+                ]
+                }
+            </div>
+
+            <p><strong>Step 2:</strong> Crawl the website to build the knowledge base</p>
+            <div class="button-group">
+                <button id="crawlBtn" onclick="startCrawl()">Start Crawl</button>
+                <button id="checkCrawlBtn" onclick="checkCrawl()" disabled>Check Crawl Status</button>
+            </div>
+            <div id="crawlStatus"></div>
+
+            <p style="margin-top: 1.5rem;"><strong>Step 3:</strong> Initialize a chat session</p>
+            <div class="button-group">
+                <button id="initChatBtn" onclick="initializeChat()" disabled>Initialize Chat</button>
+            </div>
+            <div id="chatStatus"></div>
+        </div>
+
+        <div class="setup-section">
+            <h2>🎯 Instructions</h2>
+            <ol style="padding-left: 1.5rem; line-height: 2;">
+                <li>Make sure the backend is running at <code>http://localhost:8000</code></li>
+                <li>Click "Start Crawl" to scrape example.com</li>
+                <li>Once crawl completes, click "Initialize Chat"</li>
+                <li>Click the orange chat button in the bottom-right corner</li>
+                <li>Ask questions about the crawled content!</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Widget will be loaded here -->
+    <div id="astra-widget-root"></div>
+
+    <script>
+        const API_ENDPOINT = 'http://localhost:8000';
+        let crawlId = null;
+        let chatId = null;
+
+        // Configuration for crawling
+        const crawlConfig = {
+            base_url: "https://example.com",
+            routes: [
+                "https://example.com"
+            ]
+        };
+
+        async function startCrawl() {
+            const btn = document.getElementById('crawlBtn');
+            const statusDiv = document.getElementById('crawlStatus');
+
+            btn.disabled = true;
+            statusDiv.innerHTML = '<div class="status info">🔄 Starting crawl...</div>';
+
+            try {
+                const response = await fetch(`${API_ENDPOINT}/api/scrape`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: crawlConfig.base_url,
+                        max_depth: 1
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    crawlId = data.crawl_id;
+                    statusDiv.innerHTML = `<div class="status success">✅ Crawl successful! Crawl ID: ${crawlId}<br>Pages scraped: ${data.pages.length}</div>`;
+                    document.getElementById('checkCrawlBtn').disabled = false;
+                    document.getElementById('initChatBtn').disabled = false;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Error: ${data.detail}</div>`;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Network error: ${error.message}</div>`;
+                btn.disabled = false;
+            }
+        }
+
+        async function checkCrawl() {
+            if (!crawlId) return;
+
+            const statusDiv = document.getElementById('crawlStatus');
+            statusDiv.innerHTML = '<div class="status info">🔄 Fetching crawl info...</div>';
+
+            try {
+                const response = await fetch(`${API_ENDPOINT}/api/crawls/${crawlId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.innerHTML = `<div class="status success">✅ Crawl Info:<br>URL: ${data.url}<br>Pages: ${data.page_count}<br>Created: ${new Date(data.created_at).toLocaleString()}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Error: ${data.detail}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Network error: ${error.message}</div>`;
+            }
+        }
+
+        async function initializeChat() {
+            if (!crawlId) {
+                alert('Please complete the crawl first!');
+                return;
+            }
+
+            const btn = document.getElementById('initChatBtn');
+            const statusDiv = document.getElementById('chatStatus');
+
+            btn.disabled = true;
+            statusDiv.innerHTML = '<div class="status info">🔄 Creating chat session...</div>';
+
+            try {
+                const response = await fetch(`${API_ENDPOINT}/api/chats`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ crawl_id: crawlId })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    chatId = data.chat_id;
+                    statusDiv.innerHTML = `<div class="status success">✅ Chat initialized! Chat ID: ${chatId}<br>Now open the chatbot widget in the bottom-right!</div>`;
+
+                    // TODO: Initialize the actual widget here
+                    // This would require importing the widget library
+                    alert('Chat session created! In a real implementation, the widget would automatically connect to this chat session.');
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Error: ${data.detail}</div>`;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Network error: ${error.message}</div>`;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
