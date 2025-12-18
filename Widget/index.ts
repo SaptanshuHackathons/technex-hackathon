@@ -15,5 +15,12 @@ export { useChat, ChatProvider } from './hooks/useChat';
 export { useAstra, AstraProvider } from './context/AstraContext';
 
 // Export types
-export type { AstraConfig, AstraAppearance } from './context/AstraContext';
+export type {
+  AstraConfig,
+  AstraWidgetConfig,
+  AstraUIConfig,
+  AstraAppearance,
+  AstraPage,
+  AstraInitStatus,
+} from './types/config';
 export type { Message } from './hooks/useChat';

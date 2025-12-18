@@ -7,6 +7,9 @@ import { Download, Key, Activity, Database, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { mockPreviousChats } from "@/lib/mock-data";
+import { listChats, type Chat } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export function ProfileHeader() {
     const { user } = useUserStore();
@@ -62,10 +65,48 @@ export function SubscriptionCard() {
 }
 
 export function ChatHistoryList() {
-    const handleExport = (id: string) => {
-        console.log(`Exporting chat ${id}`);
-        // Mock export functionality
-        alert(`Chat ${id} exported successfully!`);
+    const [chats, setChats] = useState<Chat[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
+
+    useEffect(() => {
+        const fetchChats = async () => {
+            try {
+                setIsLoading(true);
+                const data = await listChats();
+                setChats(data);
+                setError(null);
+            } catch (err) {
+                console.error('Failed to fetch chats:', err);
+                setError('Failed to load chat history');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchChats();
+    }, []);
+
+    const handleChatClick = (chatId: string) => {
+        router.push(`/chat?id=${chatId}`);
+    };
+
+    const formatTimestamp = (timestamp: string) => {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+        
+        if (diffInHours < 1) {
+            return 'Just now';
+        } else if (diffInHours < 24) {
+            return `${Math.floor(diffInHours)} hours ago`;
+        } else if (diffInHours < 48) {
+            return 'Yesterday';
+        } else {
+            const diffInDays = Math.floor(diffInHours / 24);
+            return `${diffInDays} days ago`;
+        }
     };
 
     return (
@@ -77,21 +118,46 @@ export function ChatHistoryList() {
                 <CardDescription>View and manage your previous observations</CardDescription>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="h-[300px] w-full pr-4">
-                    <div className="flex flex-col gap-2">
-                        {mockPreviousChats.map((chat) => (
-                            <div key={chat.id} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                                <div className="flex flex-col gap-1 overflow-hidden">
-                                    <span className="font-medium truncate">{chat.title}</span>
-                                    <span className="text-xs text-muted-foreground">{chat.timestamp}</span>
-                                </div>
-                                <Button variant="ghost" size="icon" onClick={() => handleExport(chat.id)} title="Export Chat">
-                                    <Download className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
+                {isLoading ? (
+                    <div className="flex items-center justify-center h-[300px]">
+                        <p className="text-muted-foreground">Loading chats...</p>
                     </div>
-                </ScrollArea>
+                ) : error ? (
+                    <div className="flex items-center justify-center h-[300px]">
+                        <p className="text-destructive">{error}</p>
+                    </div>
+                ) : chats.length === 0 ? (
+                    <div className="flex items-center justify-center h-[300px]">
+                        <p className="text-muted-foreground">No chats yet. Start by scraping a website!</p>
+                    </div>
+                ) : (
+                    <ScrollArea className="h-[300px] w-full pr-4">
+                        <div className="flex flex-col gap-2">
+                            {chats.map((chat) => (
+                                <div 
+                                    key={chat.id} 
+                                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+                                    onClick={() => handleChatClick(chat.id)}
+                                >
+                                    <div className="flex flex-col gap-1 overflow-hidden">
+                                        <span className="font-medium truncate">
+                                            {chat.title || chat.url || 'Untitled Chat'}
+                                        </span>
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span>{formatTimestamp(chat.created_at)}</span>
+                                            {chat.page_count > 0 && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span>{chat.page_count} {chat.page_count === 1 ? 'page' : 'pages'}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                )}
             </CardContent>
         </Card>
     );

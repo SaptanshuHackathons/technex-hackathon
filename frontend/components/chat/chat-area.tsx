@@ -168,31 +168,11 @@ export function ChatArea() {
                                     )}
                                 >
                                     {msg.role === "ai" ? (
-                                        <>
-                                            <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-strong:font-bold prose-strong:text-gray-900 dark:prose-strong:text-gray-100">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                                    {msg.content}
-                                                </ReactMarkdown>
-                                            </div>
-                                            {msg.sources && msg.sources.length > 0 && (
-                                                <div className="mt-3 pt-3 border-t dark:border-white/10">
-                                                    <p className="text-xs font-semibold text-gray-500 mb-2">Sources:</p>
-                                                    <div className="space-y-1">
-                                                        {msg.sources.map((source, idx) => (
-                                                            <a
-                                                                key={idx}
-                                                                href={source.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="block text-xs text-blue-600 hover:underline dark:text-blue-400"
-                                                            >
-                                                                {source.title || source.url}
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
+                                        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-strong:font-bold prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:font-medium hover:prose-a:underline">
+                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                {msg.content}
+                                            </ReactMarkdown>
+                                        </div>
                                     ) : (
                                         <p className="whitespace-pre-wrap">{msg.content}</p>
                                     )}

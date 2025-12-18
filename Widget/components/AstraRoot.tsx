@@ -1,8 +1,9 @@
 'use client';
 
 import React, { ReactNode, CSSProperties } from 'react';
-import { AstraProvider, AstraConfig } from '../context/AstraContext';
+import { AstraProvider } from '../context/AstraContext';
 import { ChatProvider } from '../hooks/useChat';
+import type { AstraConfig } from '../types/config';
 import './AstraWidget.css';
 
 export interface AstraRootProps extends AstraConfig {
@@ -28,6 +29,7 @@ export function AstraRoot({ children, ...config }: AstraRootProps) {
         <AstraProvider config={config}>
             <ChatProvider
                 apiKey={config.apiKey}
+                siteId={config.siteId}
                 apiEndpoint={config.apiEndpoint}
                 initialMessage={config.initialMessage}
             >

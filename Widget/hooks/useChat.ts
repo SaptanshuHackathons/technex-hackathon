@@ -7,6 +7,7 @@ export interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    sources?: Array<{ url: string; title: string; score: number }>;
 }
 
 interface ChatContextValue {
@@ -21,12 +22,16 @@ const ChatContext = createContext<ChatContextValue | undefined>(undefined);
 export interface ChatProviderProps {
     children: ReactNode;
     apiKey: string;
+    siteId: string;
     apiEndpoint?: string;
     initialMessage?: string;
 }
 
-export function ChatProvider({ children, apiKey, apiEndpoint, initialMessage }: ChatProviderProps) {
-    const defaultMessage = initialMessage || 'Hello! I\'m Astra, your context-aware assistant. How can I help you today?';
+const DEFAULT_API_ENDPOINT = 'http://localhost:8000/api';
+
+export function ChatProvider({ children, apiKey, siteId, apiEndpoint, initialMessage }: ChatProviderProps) {
+    const defaultMessage = initialMessage || 'Hello! I\'m here to help you with your questions. What would you like to know?';
+    const endpoint = apiEndpoint || DEFAULT_API_ENDPOINT;
 
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -52,40 +57,52 @@ export function ChatProvider({ children, apiKey, apiEndpoint, initialMessage }: 
         setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
 
-        // TODO: Replace with actual API call using apiKey and apiEndpoint
-        // For now, using mock responses
-        await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 500));
+        try {
+            const response = await fetch(`${endpoint}/widget/query`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    site_id: siteId,
+                    api_key: apiKey,
+                    query: content,
+                    limit: 5,
+                }),
+            });
 
-        // Mock response logic
-        let botResponse = 'I understand your question. Let me help you with that.';
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Query failed');
+            }
 
-        const lowerContent = content.toLowerCase();
-        if (lowerContent.includes('hello') || lowerContent.includes('hi')) {
-            botResponse = 'Hello! I can help you navigate this site and answer questions about our services.';
-        } else if (lowerContent.includes('pricing') || lowerContent.includes('price') || lowerContent.includes('cost')) {
-            botResponse = 'Our pricing starts at $99/month for the basic plan. Would you like to know more about our features?';
-        } else if (lowerContent.includes('feature') || lowerContent.includes('what can you do')) {
-            botResponse = 'I can help you with website navigation, answer questions about products, provide support, and much more. What would you like to know?';
-        } else if (lowerContent.includes('contact') || lowerContent.includes('support')) {
-            botResponse = 'You can reach our support team at support@astra.ai or through the contact form on our website.';
+            const data = await response.json();
+
+            const assistantMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: data.answer,
+                timestamp: new Date(),
+                sources: data.sources,
+            };
+
+            setMessages((prev) => [...prev, assistantMessage]);
+        } catch (error) {
+            const errorMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+            setIsLoading(false);
         }
-
-        const assistantMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: botResponse,
-            timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-        setIsLoading(false);
     };
 
     const downloadChat = () => {
         const chatText = messages
             .map((msg) => {
                 const time = msg.timestamp.toLocaleTimeString();
-                const sender = msg.role === 'user' ? 'You' : 'Astra';
+                const sender = msg.role === 'user' ? 'You' : 'Assistant';
                 return `[${time}] ${sender}: ${msg.content}`;
             })
             .join('\n\n');
@@ -94,11 +111,10 @@ export function ChatProvider({ children, apiKey, apiEndpoint, initialMessage }: 
 
         const a = document.createElement('a');
         a.href = url;
-        a.download = `astra-chat-${Date.now()}.txt`;
+        a.download = `chat-${Date.now()}.txt`;
         document.body.appendChild(a);
         a.click();
 
-        // Delay removal to ensure browser registers the download attribute
         setTimeout(() => {
             document.body.removeChild(a);
         }, 100);
@@ -111,7 +127,7 @@ export function ChatProvider({ children, apiKey, apiEndpoint, initialMessage }: 
         downloadChat,
     };
 
-    return <ChatContext.Provider value={ value }> { children } </ChatContext.Provider>;
+    return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 
 export function useChat() {

@@ -8,7 +8,7 @@ import { AstraHeader } from './AstraHeader';
 import { AstraMessages } from './AstraMessages';
 import { AstraInput } from './AstraInput';
 import { AstraFooter } from './AstraFooter';
-import { AstraConfig } from '../context/AstraContext';
+import type { AstraConfig } from '../types/config';
 
 // Default pre-composed component
 export default function AstraWidget(config: AstraConfig) {
@@ -35,5 +35,5 @@ AstraWidget.Input = AstraInput;
 AstraWidget.Footer = AstraFooter;
 
 // Export types
-export type { AstraConfig, AstraAppearance } from '../context/AstraContext';
+export type { AstraConfig, AstraAppearance, AstraPage, AstraInitStatus } from '../types/config';
 export type { Message } from '../hooks/useChat';

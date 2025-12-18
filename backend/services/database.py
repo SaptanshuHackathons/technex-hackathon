@@ -1,26 +1,39 @@
 """
 Database service using Supabase for storing crawl, chat, and page metadata.
 Supports hierarchical page structure for tree-view display.
+Uses singleton pattern for connection pooling.
 """
 
 import os
 from typing import Dict, Optional, Any, List
 from supabase import create_client, Client
 from datetime import datetime
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
+def _get_supabase_client() -> Client:
+    """
+    Get singleton Supabase client instance.
+    Uses lru_cache to ensure only one client is created.
+    """
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY")
+
+    if not supabase_url or not supabase_key:
+        raise ValueError(
+            "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
+        )
+
+    client = create_client(supabase_url, supabase_key)
+    print(f"Connected to Supabase at {supabase_url}")
+    return client
 
 
 class DatabaseService:
     def __init__(self):
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_KEY")
-
-        if not supabase_url or not supabase_key:
-            raise ValueError(
-                "SUPABASE_URL and SUPABASE_KEY must be set in environment variables"
-            )
-
-        self.supabase: Client = create_client(supabase_url, supabase_key)
-        print(f"Connected to Supabase at {supabase_url}")
+        # Use singleton client for connection pooling
+        self.supabase: Client = _get_supabase_client()
 
     def create_crawl(self, url: str, crawl_id: Optional[str] = None) -> str:
         """
@@ -50,6 +63,46 @@ class DatabaseService:
         """Get crawl metadata by crawl_id."""
         result = self.supabase.table("crawls").select("*").eq("id", crawl_id).execute()
         return result.data[0] if result.data else None
+
+    def find_crawl_by_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """
+        Find an existing crawl by URL.
+        Returns the most recent crawl for the given URL.
+
+        Args:
+            url: The URL to search for
+
+        Returns:
+            The crawl metadata if found, None otherwise
+        """
+        result = (
+            self.supabase.table("crawls")
+            .select("*")
+            .eq("url", url)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def get_crawl_pages(self, crawl_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all pages for a crawl.
+
+        Args:
+            crawl_id: The crawl ID
+
+        Returns:
+            List of page records
+        """
+        result = (
+            self.supabase.table("pages")
+            .select("*")
+            .eq("crawl_id", crawl_id)
+            .order("created_at")
+            .execute()
+        )
+        return result.data if result.data else []
 
     def create_chat(self, crawl_id: str, chat_id: Optional[str] = None) -> str:
         """
@@ -231,3 +284,22 @@ class DatabaseService:
             .execute()
         )
         return result.data
+
+    def delete_chat(self, chat_id: str) -> bool:
+        """
+        Delete a chat and all its messages.
+        The database cascade will handle deleting messages automatically.
+
+        Args:
+            chat_id: The chat session ID to delete
+
+        Returns:
+            True if deletion was successful
+        """
+        try:
+            # Delete the chat (messages will be deleted by CASCADE)
+            self.supabase.table("chats").delete().eq("id", chat_id).execute()
+            return True
+        except Exception as e:
+            print(f"Error deleting chat {chat_id}: {str(e)}")
+            return False

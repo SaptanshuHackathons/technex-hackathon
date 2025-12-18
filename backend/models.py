@@ -6,6 +6,7 @@ class ScrapeRequest(BaseModel):
     url: str
     max_depth: Optional[int] = 3
     crawl_id: Optional[str] = None  # If not provided, will be generated
+    force_refresh: Optional[bool] = False  # Force re-scraping even if data exists
 
 
 class PageInfo(BaseModel):
@@ -49,3 +50,56 @@ class CreateChatRequest(BaseModel):
     crawl_id: str
 
 
+# ============== Widget-specific Models ==============
+
+class WidgetPage(BaseModel):
+    """A single page to scrape for the widget."""
+    url: str
+    label: Optional[str] = None
+    metadata: Optional[Dict[str, str]] = None
+
+
+class WidgetInitRequest(BaseModel):
+    """Request to initialize or check embeddings for a widget site."""
+    site_id: str  # Unique identifier for the site
+    api_key: str  # Widget API key for authentication
+    pages: List[WidgetPage]  # Pages to index (only used if no embeddings exist)
+
+
+class WidgetInitResponse(BaseModel):
+    """Response from widget initialization."""
+    success: bool
+    site_id: str
+    has_embeddings: bool
+    indexed_page_count: int
+    message: str
+
+
+class WidgetQueryRequest(BaseModel):
+    """Query request from the widget."""
+    site_id: str
+    api_key: str
+    query: str
+    limit: Optional[int] = 5
+
+
+class WidgetQueryResponse(BaseModel):
+    """Query response for the widget."""
+    answer: str
+    sources: List[Source]
+    site_id: str
+
+
+class WidgetRefreshRequest(BaseModel):
+    """Request to refresh embeddings for a widget site."""
+    site_id: str
+    api_key: str
+    pages: List[WidgetPage]  # Pages to re-index
+
+
+class WidgetRefreshResponse(BaseModel):
+    """Response from embedding refresh."""
+    success: bool
+    site_id: str
+    indexed_page_count: int
+    message: str

@@ -1,10 +1,12 @@
 import { URLInput } from "@/components/url-input";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, History } from "lucide-react";
 import { Navbar } from "@/components/landing/navbar";
 import { BentoGrid } from "@/components/landing/bento-grid";
 import { Pipeline } from "@/components/landing/pipeline";
 import { Stats } from "@/components/landing/stats";
 import { Pricing } from "@/components/landing/pricing";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Page() {
     return (
@@ -38,7 +40,14 @@ export default function Page() {
                         <URLInput className="w-full" />
                     </div>
 
-                    
+                    <div className="mt-6 flex justify-center gap-4">
+                        <Link href="/profile">
+                            <Button variant="outline" className="gap-2">
+                                <History className="h-4 w-4" />
+                                View Previous Chats
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
             </main>
 

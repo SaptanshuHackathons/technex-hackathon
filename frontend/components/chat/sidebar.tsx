@@ -9,7 +9,8 @@ import {
     Plus,
     Sparkles,
     MessageSquare,
-    Clock
+    Clock,
+    Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import * as React from "react";
@@ -68,9 +69,10 @@ function TreeNodeComponent({ node, level = 0 }: { node: TreeNode; level?: number
 }
 
 export function ChatSidebar({ className }: SidebarProps) {
-    const { pageTree, isLoadingTree, chatId, setChatId, previousChats, loadPreviousChats, isLoadingChats } = useChatStore();
+    const { pageTree, isLoadingTree, chatId, setChatId, previousChats, loadPreviousChats, isLoadingChats, deleteChat } = useChatStore();
     const searchParams = useSearchParams();
     const router = useRouter();
+    const [deletingChatId, setDeletingChatId] = React.useState<string | null>(null);
 
     // Load chat ID from URL on mount
     React.useEffect(() => {
@@ -84,6 +86,27 @@ export function ChatSidebar({ className }: SidebarProps) {
     React.useEffect(() => {
         loadPreviousChats();
     }, [loadPreviousChats]);
+
+    const handleDeleteChat = async (chatIdToDelete: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent chat selection
+        
+        if (!confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
+            return;
+        }
+
+        setDeletingChatId(chatIdToDelete);
+        try {
+            await deleteChat(chatIdToDelete);
+            // If we deleted the current chat, redirect to home
+            if (chatIdToDelete === chatId) {
+                router.push("/");
+            }
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Failed to delete chat");
+        } finally {
+            setDeletingChatId(null);
+        }
+    };
 
     const formatTimeAgo = (dateString: string) => {
         const date = new Date(dateString);
@@ -162,6 +185,18 @@ export function ChatSidebar({ className }: SidebarProps) {
                                             {formatTimeAgo(chat.created_at)} • {chat.page_count} page{chat.page_count !== 1 ? 's' : ''}
                                         </div>
                                     </div>
+                                    <button
+                                        onClick={(e) => handleDeleteChat(chat.id, e)}
+                                        disabled={deletingChatId === chat.id}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                        title="Delete chat"
+                                    >
+                                        {deletingChatId === chat.id ? (
+                                            <div className="h-3.5 w-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400" />
+                                        )}
+                                    </button>
                                 </div>
                                 );
                             })}

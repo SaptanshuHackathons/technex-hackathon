@@ -1,9 +1,11 @@
-# Astra Widget - Reusable React Component
+# Astra Widget - Embeddable AI Chatbot for Documentation
 
-A beautiful, customizable chatbot widget for React applications. Built with the compound component pattern for maximum flexibility.
+A beautiful, customizable AI chatbot widget that developers can embed in their documentation sites. The widget scrapes your docs, generates embeddings once, and uses RAG to answer user questions.
 
 ## Features
 
+- 🤖 **AI-Powered Q&A** - RAG-based responses from your documentation
+- 📚 **One-Time Indexing** - Embeddings are generated once, reused for all chats
 - 🎨 **Beautiful Default UI** - Polished, modern design out of the box
 - 🔧 **Fully Customizable** - Clerk-like appearance API for theming
 - 🧩 **Compound Components** - Rearrange layout or build custom UIs
@@ -20,96 +22,123 @@ A beautiful, customizable chatbot widget for React applications. Built with the 
 
 ## Quick Start
 
-### Simple Usage (Default Layout)
+### 1. Create your config file
+
+Copy `astra.config.example.ts` to your project and configure:
+
+```typescript
+// astra.config.ts
+import type { AstraConfig } from './Widget';
+
+const config: AstraConfig = {
+  siteId: 'my-docs',           // Unique identifier for your site
+  apiKey: 'astra_your_key',    // Your Astra API key
+  pages: [                      // Documentation pages to index
+    { url: 'https://docs.example.com/', label: 'Home' },
+    { url: 'https://docs.example.com/api', label: 'API Reference' },
+  ],
+  title: 'Docs Assistant',
+  initialMessage: 'Hi! Ask me anything about our docs.',
+};
+
+export default config;
+```
+
+### 2. Add the widget
 
 ```tsx
 import AstraWidget from './Widget';
+import config from './astra.config';
 
 function App() {
   return (
     <div>
-      <AstraWidget apiKey="your-api-key" />
+      <AstraWidget {...config} />
     </div>
   );
 }
 ```
 
-### With Customization
+### 3. Initialize embeddings (first time only)
+
+The widget checks for existing embeddings on load. To create or refresh embeddings, use the `refreshEmbeddings()` function:
 
 ```tsx
-import AstraWidget from './Widget';
+import { useAstra } from './Widget';
 
-function App() {
+function AdminPanel() {
+  const { initStatus, refreshEmbeddings } = useAstra();
+  
   return (
-    <AstraWidget
-      apiKey="your-api-key"
-      title="Support Chat"
-      position="bottom-left"
-      appearance={{
-        variables: {
-          primaryColor: '#6366f1',
-          borderRadius: '0.5rem',
-        },
-      }}
-    />
-  );
-}
-```
-
-### Custom Layout (Compound Components)
-
-```tsx
-import AstraWidget from './Widget';
-
-function App() {
-  return (
-    <AstraWidget.Root apiKey="your-api-key">
-      <AstraWidget.Toggle />
-      <AstraWidget.Window>
-        <AstraWidget.Header />
-        {/* Add your custom component here */}
-        <AstraWidget.Messages />
-        <AstraWidget.Input />
-        <AstraWidget.Footer />
-      </AstraWidget.Window>
-    </AstraWidget.Root>
+    <div>
+      <p>Status: {initStatus.hasEmbeddings ? 'Ready' : 'Not indexed'}</p>
+      <p>Pages indexed: {initStatus.indexedPageCount}</p>
+      <button onClick={refreshEmbeddings} disabled={initStatus.isInitializing}>
+        {initStatus.isInitializing ? 'Indexing...' : 'Refresh Embeddings'}
+      </button>
+    </div>
   );
 }
 ```
 
 ## API Reference
 
-### AstraWidget (Default Export)
+### AstraWidget Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `apiKey` | `string` | **required** | Your API key |
-| `title` | `string` | `"Astra Assistant"` | Chat window title |
-| `position` | `'bottom-right' \| 'bottom-left'` | `'bottom-right'` | Widget position |
-| `appearance` | `AstraAppearance` | `undefined` | Theming configuration |
-| `apiEndpoint` | `string` | `undefined` | Custom API endpoint |
-| `initialMessage` | `string` | Default greeting | Initial bot message |
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `siteId` | `string` | ✅ | Unique identifier for your site (namespaces embeddings) |
+| `apiKey` | `string` | ✅ | Your Astra API key (prefix: `astra_`) |
+| `pages` | `AstraPage[]` | ✅ | Pages to scrape and index |
+| `title` | `string` | | Chat window title |
+| `position` | `'bottom-right' \| 'bottom-left'` | | Widget position |
+| `appearance` | `AstraAppearance` | | Theming configuration |
+| `apiEndpoint` | `string` | | Custom API endpoint |
+| `initialMessage` | `string` | | Initial bot greeting |
+| `supabase` | `{ url, anonKey }` | | Custom Supabase for data isolation |
+
+### Initialization Status
+
+Access via `useAstra()` hook:
+
+```typescript
+interface AstraInitStatus {
+  isReady: boolean;           // Widget ready to accept queries
+  isInitializing: boolean;    // Init/refresh in progress
+  error: string | null;       // Error message if failed
+  hasEmbeddings: boolean;     // Whether embeddings exist
+  indexedPageCount: number;   // Number of indexed chunks
+}
+```
+
+### Backend Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/widget/init` | POST | Check if embeddings exist for siteId |
+| `/api/widget/query` | POST | Query indexed content |
+| `/api/widget/refresh` | POST | Scrape pages and regenerate embeddings |
 
 ### Appearance API
 
 ```tsx
 interface AstraAppearance {
   variables?: {
-    primaryColor?: string;      // Main theme color
-    primaryHover?: string;       // Hover state color
-    fontFamily?: string;         // Custom font
-    borderRadius?: string;       // Border radius
-    accentColor?: string;        // Accent color (status indicator)
+    primaryColor?: string;
+    primaryHover?: string;
+    fontFamily?: string;
+    borderRadius?: string;
+    accentColor?: string;
   };
   elements?: {
-    container?: string;          // Additional classes for container
-    toggle?: string;             // Additional classes for toggle button
-    window?: string;             // Additional classes for chat window
-    header?: string;             // Additional classes for header
-    messages?: string;           // Additional classes for messages area
-    messageBubble?: string;      // Additional classes for message bubbles
-    input?: string;              // Additional classes for input area
-    footer?: string;             // Additional classes for footer
+    container?: string;
+    toggle?: string;
+    window?: string;
+    header?: string;
+    messages?: string;
+    messageBubble?: string;
+    input?: string;
+    footer?: string;
   };
 }
 ```
@@ -130,7 +159,9 @@ interface AstraAppearance {
 
 ```tsx
 <AstraWidget
-  apiKey="your-api-key"
+  siteId="my-project"
+  apiKey="astra_xxx"
+  pages={[{ url: 'https://docs.example.com' }]}
   appearance={{
     variables: {
       primaryColor: '#10b981',
@@ -145,7 +176,9 @@ interface AstraAppearance {
 
 ```tsx
 <AstraWidget
-  apiKey="your-api-key"
+  siteId="my-project"
+  apiKey="astra_xxx"
+  pages={[{ url: 'https://docs.example.com' }]}
   position="bottom-left"
   title="Help Center"
 />

@@ -26,7 +26,15 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", None)  # None for local Qdrant
 
 # Vector Store Configuration
 COLLECTION_NAME = "scraped_pages"
+WIDGET_COLLECTION_NAME = "widget_embeddings"  # Separate collection for widget sites
 # Default embedding dimension (all-MiniLM-L6-v2 is 384, bge-m3 is 1024)
 # Update this if you change the model
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "384"))  # 384 for all-MiniLM-L6-v2, 1024 for bge-m3
+
+# Widget-specific Supabase Configuration (separate from main app)
+WIDGET_SUPABASE_URL = os.getenv("WIDGET_SUPABASE_URL")
+WIDGET_SUPABASE_KEY = os.getenv("WIDGET_SUPABASE_KEY")
+
+# Widget API Key validation (simple prefix-based for now)
+WIDGET_API_KEY_PREFIX = os.getenv("WIDGET_API_KEY_PREFIX", "astra_")
 

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { scrapeWebsite, getChatTree, queryRAG, TreeNode, listChats, Chat, getChatMessages, scrapeWebsiteWithProgress, ScrapeProgress } from "./api";
+import { scrapeWebsite, getChatTree, queryRAG, TreeNode, listChats, Chat, getChatMessages, scrapeWebsiteWithProgress, ScrapeProgress, deleteChat } from "./api";
 
 type Message = {
   id: string;
@@ -47,6 +47,7 @@ type ChatStore = {
   loadPreviousChats: () => Promise<void>;
   loadMessages: (chatId: string) => Promise<void>;
   sendMessage: (query: string) => Promise<void>;
+  deleteChat: (chatId: string) => Promise<void>;
   setChatId: (chatId: string) => void;
   reset: () => void;
 };
@@ -131,10 +132,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         isScraping: false,
       });
 
-      // Load the page tree and messages
-      await get().loadTree(result.chat_id);
-      await get().loadMessages(result.chat_id);
-      await get().loadPreviousChats();
+      // Load the page tree, messages, and previous chats in parallel
+      await Promise.all([
+        get().loadTree(result.chat_id),
+        get().loadMessages(result.chat_id),
+        get().loadPreviousChats(),
+      ]);
 
     } catch (error) {
       set({ isScraping: false });
@@ -153,14 +156,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         isLoading: false,
       });
 
-      // Load the page tree immediately
-      await get().loadTree(response.chat_id);
-
-      // Load the initial summary message from database
-      await get().loadMessages(response.chat_id);
-
-      // Reload previous chats to show the new chat
-      await get().loadPreviousChats();
+      // Load tree, messages, and previous chats in parallel
+      await Promise.all([
+        get().loadTree(response.chat_id),
+        get().loadMessages(response.chat_id),
+        get().loadPreviousChats(),
+      ]);
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -275,6 +276,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({ chatId });
       get().loadTree(chatId);
       get().loadMessages(chatId);
+    }
+  },
+
+  // Delete a chat
+  deleteChat: async (chatId: string) => {
+    try {
+      await deleteChat(chatId);
+      
+      // Remove from previousChats list
+      const currentChats = get().previousChats;
+      set({ previousChats: currentChats.filter(chat => chat.id !== chatId) });
+      
+      // If the deleted chat was active, reset
+      if (get().chatId === chatId) {
+        get().reset();
+      }
+    } catch (error) {
+      console.error("Failed to delete chat:", error);
+      throw error;
     }
   },
 
