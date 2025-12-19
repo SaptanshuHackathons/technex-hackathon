@@ -120,9 +120,29 @@ Please provide a comprehensive answer based on the context above. When referenci
                     if num in sources_map:
                         source_info = sources_map[num]
                         url = source_info["url"]
-                        title = source_info["title"] or f"Source {num}"
-                        # Create markdown link
-                        links.append(f"[Source {num}]({url})")
+                        title = source_info["title"]
+                        
+                        # Use title if available, otherwise extract from URL
+                        if title and title.strip():
+                            link_text = title.strip()
+                            # Limit title length for readability
+                            if len(link_text) > 60:
+                                link_text = link_text[:57] + "..."
+                        else:
+                            # Extract meaningful part from URL (path or domain)
+                            from urllib.parse import urlparse
+                            parsed = urlparse(url)
+                            path = parsed.path.strip("/")
+                            if path:
+                                # Use last part of path
+                                link_text = path.split("/")[-1].replace("-", " ").replace("_", " ").title()
+                                if len(link_text) > 60:
+                                    link_text = link_text[:57] + "..."
+                            else:
+                                link_text = parsed.netloc or f"Source {num}"
+                        
+                        # Create markdown link with descriptive text
+                        links.append(f"[{link_text}]({url})")
 
                 if links:
                     return "(" + ", ".join(links) + ")"

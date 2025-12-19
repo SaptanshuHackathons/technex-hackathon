@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAstra } from '../context/AstraContext';
 import { useChat } from '../hooks/useChat';
 
@@ -24,7 +26,15 @@ export function AstraMessages() {
                     className={`astra-message ${message.role}`}
                 >
                     <div className={`astra-message-bubble ${bubbleClass}`}>
-                        <p className="astra-message-content">{message.content}</p>
+                        {message.role === 'ai' ? (
+                            <div className="astra-message-markdown">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {message.content}
+                                </ReactMarkdown>
+                            </div>
+                        ) : (
+                            <p className="astra-message-content">{message.content}</p>
+                        )}
                         <span className="astra-message-timestamp">
                             {message.timestamp.toLocaleTimeString([], {
                                 hour: '2-digit',

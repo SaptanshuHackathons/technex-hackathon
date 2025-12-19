@@ -20,8 +20,8 @@ from models import (
     WidgetRefreshRequest,
     WidgetRefreshResponse,
     SummarizeRequest,
-    SummarizeResponse
-
+    SummarizeResponse,
+    CrawlProgressResponse,
 )
 from config import WIDGET_API_KEY_PREFIX
 from services.scraper import ScraperService
@@ -30,6 +30,7 @@ from services.vector_store import VectorStoreService
 from services.rag import RAGService
 from services.database import DatabaseService
 from services.chunking import ChunkingService
+from services.background_tasks import background_task_manager
 
 router = APIRouter()
 
@@ -90,14 +91,23 @@ async def scrape_stream_generator(request: ScrapeRequest):
                 crawl_id = existing_crawl["id"]
                 yield f"data: {json.dumps({'stage': 'cache_found', 'message': 'Found existing data for this URL', 'progress': 5})}\n\n"
 
+                # Check if there's already a chat session for this crawl
+                existing_chat = db_service.find_chat_by_crawl_id(crawl_id)
+
+                if existing_chat:
+                    # Reuse existing chat session
+                    chat_id = existing_chat["id"]
+                    yield f"data: {json.dumps({'stage': 'chat_found', 'message': 'Using existing chat session', 'chat_id': chat_id, 'crawl_id': crawl_id, 'progress': 15})}\n\n"
+                else:
+                    # Create a new chat session for existing crawl
+                    chat_id = db_service.create_chat(crawl_id)
+                    yield f"data: {json.dumps({'stage': 'chat_created', 'message': 'Chat session created', 'chat_id': chat_id, 'crawl_id': crawl_id, 'progress': 15})}\n\n"
+
                 # Get existing pages
                 existing_pages = db_service.get_crawl_pages(crawl_id)
 
                 if existing_pages and len(existing_pages) > 0:
-                    # Create a new chat session for existing crawl
-                    chat_id = db_service.create_chat(crawl_id)
-
-                    yield f"data: {json.dumps({'stage': 'chat_created', 'message': 'Chat session created', 'chat_id': chat_id, 'crawl_id': crawl_id, 'progress': 15})}\n\n"
+                    yield f"data: {json.dumps({'stage': 'loaded', 'message': f'Loaded {len(existing_pages)} pages from cache', 'progress': 50})}\n\n"
 
                     # Load existing data into memory
                     pages_data = []
@@ -125,47 +135,53 @@ async def scrape_stream_generator(request: ScrapeRequest):
 
                     yield f"data: {json.dumps({'stage': 'loaded', 'message': f'Loaded {len(pages_data)} pages from cache', 'progress': 50})}\n\n"
 
-                    # Get existing summary if available
-                    existing_chat_data = db_service.get_chat(chat_id)
-                    if existing_chat_data and existing_chat_data.get("summary"):
-                        summary_content = existing_chat_data["summary"]
-                    else:
-                        # Generate summary for cached data
-                        yield f"data: {json.dumps({'stage': 'summarizing', 'message': 'Generating summary...', 'progress': 80})}\n\n"
+                    # Check if chat already has messages (to avoid duplicate summaries)
+                    existing_messages = db_service.get_chat_messages(chat_id)
 
-                        from urllib.parse import urlparse
+                    if not existing_messages or len(existing_messages) == 0:
+                        # Generate summary only if chat has no messages
+                        existing_chat_data = db_service.get_chat(chat_id)
+                        if existing_chat_data and existing_chat_data.get("summary"):
+                            summary_content = existing_chat_data["summary"]
+                        else:
+                            # Generate summary for cached data
+                            yield f"data: {json.dumps({'stage': 'summarizing', 'message': 'Generating summary...', 'progress': 80})}\n\n"
 
-                        domain = urlparse(request.url).netloc
+                            from urllib.parse import urlparse
 
-                        ai_summary = await rag_service.generate_content_summary(
-                            pages_data=pages_data, domain=domain, max_pages_to_analyze=5
-                        )
+                            domain = urlparse(request.url).netloc
 
-                        page_count = len(pages_data)
-                        summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
-                        db_service.update_chat_summary(chat_id, summary)
+                            ai_summary = await rag_service.generate_content_summary(
+                                pages_data=pages_data,
+                                domain=domain,
+                                max_pages_to_analyze=5,
+                            )
 
-                        pages_list = "\n".join(
-                            [
-                                f"{idx + 1}. {p.get('metadata', {}).get('title', 'Untitled Page')}"
-                                for idx, p in enumerate(pages_data[:10])
-                            ]
-                        )
-                        more_pages = (
-                            f"\n...and {page_count - 10} more pages"
-                            if page_count > 10
-                            else ""
-                        )
+                            page_count = len(pages_data)
+                            summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
+                            db_service.update_chat_summary(chat_id, summary)
 
-                        summary_content = (
-                            f"**Using Cached Data**\n\n"
-                            f"{ai_summary}\n\n"
-                            f"**Indexed Pages:**\n\n"
-                            f"{pages_list}{more_pages}"
-                        )
+                            pages_list = "\n".join(
+                                [
+                                    f"{idx + 1}. {p.get('metadata', {}).get('title', 'Untitled Page')}"
+                                    for idx, p in enumerate(pages_data[:10])
+                                ]
+                            )
+                            more_pages = (
+                                f"\n...and {page_count - 10} more pages"
+                                if page_count > 10
+                                else ""
+                            )
 
-                    # Store welcome message
-                    db_service.store_message(chat_id, "ai", summary_content)
+                            summary_content = (
+                                f"**Using Cached Data**\n\n"
+                                f"{ai_summary}\n\n"
+                                f"**Indexed Pages:**\n\n"
+                                f"{pages_list}{more_pages}"
+                            )
+
+                        # Store welcome message
+                        db_service.store_message(chat_id, "ai", summary_content)
 
                     yield f"data: {json.dumps({'stage': 'complete', 'message': 'Loaded from cache!', 'chat_id': chat_id, 'crawl_id': crawl_id, 'page_count': len(pages_data), 'from_cache': True, 'progress': 100})}\n\n"
                     return
@@ -199,8 +215,8 @@ async def scrape_stream_generator(request: ScrapeRequest):
         # Stage 3: Storing pages
         yield f"data: {json.dumps({'stage': 'storing', 'message': 'Storing page data...', 'progress': 50})}\n\n"
 
-        parent_url = None
-        for idx, page_data in enumerate(pages_data):
+        # Store all pages as root-level entries (flat list for sidebar display)
+        for page_data in pages_data:
             page_url = page_data["url"]
             title = page_data.get("metadata", {}).get("title", page_url)
 
@@ -208,12 +224,9 @@ async def scrape_stream_generator(request: ScrapeRequest):
                 crawl_id=crawl_id,
                 url=page_url,
                 title=title,
-                parent_url=parent_url if idx > 0 else None,
+                parent_url=None,  # All pages are root-level
                 metadata=page_data.get("metadata", {}),
             )
-
-            if idx == 0:
-                parent_url = page_url
 
         yield f"data: {json.dumps({'stage': 'stored', 'message': 'Pages stored successfully', 'progress': 60})}\n\n"
 
@@ -342,7 +355,51 @@ async def scrape_stream_generator(request: ScrapeRequest):
         )
         db_service.store_message(chat_id, "ai", summary_content)
 
-        # Stage 6: Complete
+        # Stage 6: Start deep scraping if enabled
+        if request.enable_deep_scrape and request.max_depth > 1:
+            try:
+                # Extract links from the first scraped page
+                if pages_data and len(pages_data) > 0:
+                    first_page = pages_data[0]
+                    markdown = first_page.get("markdown", "")
+
+                    if markdown:
+                        base_url = scraper_service._extract_base_url(request.url)
+                        discovered_links = scraper_service.extract_links_from_markdown(
+                            markdown, base_url
+                        )
+
+                        # Filter out the main page URL
+                        discovered_links = [
+                            link
+                            for link in discovered_links
+                            if link.rstrip("/") != request.url.rstrip("/")
+                        ]
+
+                        if discovered_links:
+                            yield f"data: {json.dumps({'stage': 'deep_scraping', 'message': f'Starting deep scrape for {len(discovered_links)} discovered links...', 'progress': 95})}\n\n"
+
+                            # Start background task for deep scraping
+                            background_task_manager.start_task(
+                                crawl_id,
+                                base_url=base_url,
+                                initial_links=discovered_links,
+                                max_depth=request.max_depth,
+                                chat_id=chat_id,
+                            )
+
+                            # Update crawl status
+                            db_service.update_crawl_status(
+                                crawl_id,
+                                status="scraping",
+                                max_depth=request.max_depth,
+                                total_links=len(discovered_links),
+                            )
+            except Exception as e:
+                print(f"Warning: Failed to start deep scraping: {str(e)}")
+                # Don't fail the entire scrape if deep scraping fails to start
+
+        # Stage 7: Complete
         yield f"data: {json.dumps({'stage': 'complete', 'message': 'Scraping completed successfully!', 'chat_id': chat_id, 'crawl_id': crawl_id, 'page_count': len(pages_data), 'from_cache': False, 'progress': 100})}\n\n"
 
     except Exception as e:
@@ -395,10 +452,8 @@ async def scrape_website(request: ScrapeRequest):
                 detail="No pages were scraped. Please check the URL and try again.",
             )
 
-        # Store pages in Supabase with hierarchy
-        # First page is the root, others are children of the first (simplified for now)
-        parent_url = None
-        for idx, page_data in enumerate(pages_data):
+        # Store pages in Supabase - all pages as root-level (flat list)
+        for page_data in pages_data:
             page_url = page_data["url"]
             title = page_data.get("metadata", {}).get("title", page_url)
 
@@ -407,17 +462,13 @@ async def scrape_website(request: ScrapeRequest):
                 crawl_id=crawl_id,
                 url=page_url,
                 title=title,
-                parent_url=parent_url if idx > 0 else None,
+                parent_url=None,  # All pages are root-level
                 metadata=page_data.get("metadata", {}),
             )
 
-            # First page becomes the parent for subsequent pages (simplified hierarchy)
-            if idx == 0:
-                parent_url = page_url
-
         # Generate embeddings and store in vector database using batch processing
         total_chunks_stored = 0
-        
+
         # Collect all chunks from all pages first for batch processing
         all_page_chunks = []
         for page_data in pages_data:
@@ -426,14 +477,16 @@ async def scrape_website(request: ScrapeRequest):
                 try:
                     chunks = chunking_service.chunk_markdown(markdown)
                     if chunks:
-                        all_page_chunks.append({
-                            "page_data": page_data,
-                            "chunks": chunks,
-                            "markdown": markdown
-                        })
+                        all_page_chunks.append(
+                            {
+                                "page_data": page_data,
+                                "chunks": chunks,
+                                "markdown": markdown,
+                            }
+                        )
                 except Exception as e:
                     print(f"Warning: Failed to chunk {page_data['url']}: {str(e)}")
-            
+
             # Store page info in memory (for backward compatibility)
             page_info = PageInfo(
                 page_id=page_data["page_id"],
@@ -444,58 +497,61 @@ async def scrape_website(request: ScrapeRequest):
                 crawl_id=crawl_id,
             )
             scraped_pages_store[page_data["page_id"]] = page_info
-        
+
         # Batch generate embeddings for ALL chunks at once
         if all_page_chunks:
             # Flatten all chunk texts
             all_chunk_texts = []
             chunk_metadata = []
-            
+
             for page_chunk_data in all_page_chunks:
                 page_data = page_chunk_data["page_data"]
                 chunks = page_chunk_data["chunks"]
-                
+
                 for idx, chunk in enumerate(chunks):
                     all_chunk_texts.append(chunk["text"])
-                    chunk_metadata.append({
-                        "page_data": page_data,
-                        "chunk": chunk,
-                        "idx": idx
-                    })
-            
+                    chunk_metadata.append(
+                        {"page_data": page_data, "chunk": chunk, "idx": idx}
+                    )
+
             # Generate ALL embeddings in one batch call
             try:
-                all_embeddings = await embedding_service.generate_embeddings(all_chunk_texts)
-                
+                all_embeddings = await embedding_service.generate_embeddings(
+                    all_chunk_texts
+                )
+
                 # Prepare all data for batch storage
                 embeddings_batch = []
                 for embedding, meta in zip(all_embeddings, chunk_metadata):
                     chunk_id = f"{meta['page_data']['page_id']}_chunk_{meta['idx']}"
-                    embeddings_batch.append({
-                        "page_id": chunk_id,
-                        "url": meta["page_data"]["url"],
-                        "markdown": meta["chunk"]["text"],
-                        "embedding": embedding,
-                        "metadata": {
-                            **meta["page_data"].get("metadata", {}),
-                            "chunk_index": meta["chunk"]["chunk_index"],
-                            "total_chunks": meta["chunk"]["total_chunks"],
-                            "original_page_id": meta["page_data"]["page_id"],
-                        },
-                        "crawl_id": crawl_id,
-                        "base_url": meta["page_data"].get("base_url"),
-                    })
-                
+                    embeddings_batch.append(
+                        {
+                            "page_id": chunk_id,
+                            "url": meta["page_data"]["url"],
+                            "markdown": meta["chunk"]["text"],
+                            "embedding": embedding,
+                            "metadata": {
+                                **meta["page_data"].get("metadata", {}),
+                                "chunk_index": meta["chunk"]["chunk_index"],
+                                "total_chunks": meta["chunk"]["total_chunks"],
+                                "original_page_id": meta["page_data"]["page_id"],
+                            },
+                            "crawl_id": crawl_id,
+                            "base_url": meta["page_data"].get("base_url"),
+                        }
+                    )
+
                 # Store all embeddings using batch operation
                 batch_size = 100
                 for i in range(0, len(embeddings_batch), batch_size):
-                    batch = embeddings_batch[i:i+batch_size]
+                    batch = embeddings_batch[i : i + batch_size]
                     await vector_store_service.store_embeddings_batch(batch)
                     total_chunks_stored += len(batch)
-                    
+
             except Exception as e:
                 print(f"Warning: Failed to generate/store embeddings: {str(e)}")
                 import traceback
+
                 traceback.print_exc()
 
         # Update crawl page count in database
@@ -617,17 +673,19 @@ async def list_chats():
     Optimized to batch fetch crawl data to avoid N+1 queries.
     """
     chats = db_service.list_chats()
-    
+
     if not chats:
         return []
 
     # Batch fetch all unique crawl_ids in one query
-    crawl_ids = list(set(chat.get("crawl_id") for chat in chats if chat.get("crawl_id")))
-    
+    crawl_ids = list(
+        set(chat.get("crawl_id") for chat in chats if chat.get("crawl_id"))
+    )
+
     # Create a map of crawl_id -> crawl data
     crawls_map = {}
     root_titles_map = {}
-    
+
     for crawl_id in crawl_ids:
         crawl = db_service.get_crawl(crawl_id)
         if crawl:
@@ -690,7 +748,6 @@ async def get_crawl(crawl_id: str):
     return crawl
 
 
-
 @router.get("/crawls/{crawl_id}/tree")
 async def get_crawl_tree(crawl_id: str):
     """
@@ -737,7 +794,6 @@ async def get_chat_messages(chat_id: str):
     return {"chat_id": chat_id, "messages": messages}
 
 
-
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     """
@@ -759,11 +815,9 @@ async def query_rag(request: QueryRequest):
 
         # Save user message to database
         db_service.add_message(
-            chat_id=request.chat_id,
-            role="user",
-            content=request.query
+            chat_id=request.chat_id, role="user", content=request.query
         )
-        
+
         # Generate embedding for the query
         query_embedding = await embedding_service.generate_query_embedding(
             request.query
@@ -803,11 +857,13 @@ async def query_rag(request: QueryRequest):
             role="assistant",
             content=rag_response["answer"],
             metadata={
-                "sources": [{"url": s.url, "title": s.title, "score": s.score} for s in sources],
-                **rag_response["metadata"]
-            }
+                "sources": [
+                    {"url": s.url, "title": s.title, "score": s.score} for s in sources
+                ],
+                **rag_response["metadata"],
+            },
         )
-        
+
         return QueryResponse(
             answer=rag_response["answer"],
             sources=sources,
@@ -822,7 +878,64 @@ async def query_rag(request: QueryRequest):
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
 
 
+# ============== Deep Scraping Endpoints ==============
+
+
+@router.get("/crawls/{crawl_id}/progress", response_model=CrawlProgressResponse)
+async def get_crawl_progress(crawl_id: str):
+    """
+    Get real-time progress for a deep scraping crawl.
+    Returns statistics about pages scraped, indexed, and pending.
+    """
+    try:
+        progress = db_service.get_crawl_progress(crawl_id)
+
+        if "error" in progress:
+            raise HTTPException(status_code=404, detail=progress["error"])
+
+        return CrawlProgressResponse(**progress)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get progress: {str(e)}")
+
+
+@router.post("/crawls/{crawl_id}/cancel")
+async def cancel_crawl(crawl_id: str):
+    """
+    Cancel an in-progress deep scraping crawl.
+    """
+    try:
+        success = background_task_manager.cancel_task(crawl_id)
+
+        if not success:
+            # Check if crawl exists
+            crawl = db_service.get_crawl(crawl_id)
+            if not crawl:
+                raise HTTPException(
+                    status_code=404, detail=f"Crawl {crawl_id} not found"
+                )
+
+            # Crawl exists but not running
+            return {
+                "success": False,
+                "message": "Crawl is not currently running",
+                "crawl_id": crawl_id,
+            }
+
+        return {
+            "success": True,
+            "message": "Crawl cancelled successfully",
+            "crawl_id": crawl_id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to cancel crawl: {str(e)}")
+
+
 # ============== Widget API Endpoints ==============
+
 
 def _validate_widget_api_key(api_key: str) -> bool:
     """Simple API key validation - checks prefix for now."""
@@ -871,7 +984,7 @@ async def widget_init(request: WidgetInitRequest):
 @router.post("/widget/refresh", response_model=WidgetRefreshResponse)
 async def widget_refresh(request: WidgetRefreshRequest):
     """
-    Refresh embeddings for a widget site. 
+    Refresh embeddings for a widget site.
     Scrapes all pages and regenerates embeddings.
     Only call this when developer explicitly wants to update.
     """
@@ -888,7 +1001,7 @@ async def widget_refresh(request: WidgetRefreshRequest):
 
         # Scrape and process each page
         all_embeddings_data = []
-        
+
         for page in request.pages:
             try:
                 # Scrape the page
@@ -898,7 +1011,7 @@ async def widget_refresh(request: WidgetRefreshRequest):
 
                 markdown = scraped_data.get("markdown", "")
                 metadata = scraped_data.get("metadata", {})
-                
+
                 # Chunk the content
                 chunks = chunking_service.chunk_text(
                     markdown,
@@ -911,23 +1024,27 @@ async def widget_refresh(request: WidgetRefreshRequest):
 
                 # Generate embeddings for chunks
                 chunk_texts = [c["text"] for c in chunks]
-                embeddings = await embedding_service.generate_embeddings_batch(chunk_texts)
+                embeddings = await embedding_service.generate_embeddings_batch(
+                    chunk_texts
+                )
 
                 # Prepare data for storage
                 for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                     page_id = f"{request.site_id}:{page.url}:chunk_{i}"
-                    all_embeddings_data.append({
-                        "page_id": page_id,
-                        "url": page.url,
-                        "markdown": chunk["text"],
-                        "embedding": embedding,
-                        "label": page.label or "",
-                        "metadata": {
-                            "title": metadata.get("title", ""),
-                            "chunk_index": i,
-                            "total_chunks": len(chunks),
-                        },
-                    })
+                    all_embeddings_data.append(
+                        {
+                            "page_id": page_id,
+                            "url": page.url,
+                            "markdown": chunk["text"],
+                            "embedding": embedding,
+                            "label": page.label or "",
+                            "metadata": {
+                                "title": metadata.get("title", ""),
+                                "chunk_index": i,
+                                "total_chunks": len(chunks),
+                            },
+                        }
+                    )
 
             except Exception as page_error:
                 print(f"Error processing page {page.url}: {str(page_error)}")
@@ -967,7 +1084,7 @@ async def widget_query(request: WidgetQueryRequest):
         has_embeddings, _ = await vector_store_service.widget_has_embeddings(
             request.site_id
         )
-        
+
         if not has_embeddings:
             raise HTTPException(
                 status_code=404,
@@ -1017,6 +1134,8 @@ async def widget_query(request: WidgetQueryRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Widget query failed: {str(e)}")
+
+
 @router.post("/summarize", response_model=SummarizeResponse)
 async def summarize_page(request: SummarizeRequest):
     """
@@ -1026,39 +1145,42 @@ async def summarize_page(request: SummarizeRequest):
     try:
         # Get crawl_id from chat_id
         crawl_id = db_service.get_crawl_id_from_chat_id(request.chat_id)
-        
+
         if not crawl_id:
             raise HTTPException(
                 status_code=404,
-                detail=f"Chat ID '{request.chat_id}' not found. Please create a chat session first."
+                detail=f"Chat ID '{request.chat_id}' not found. Please create a chat session first.",
             )
-        
+
         # Get all relevant documents for this crawl (no query embedding needed)
         # We'll use a dummy embedding and high limit to get all content
         # Better approach: retrieve all chunks for the crawl_id directly
         from config import EMBEDDING_DIMENSION
+
         dummy_embedding = [0.0] * EMBEDDING_DIMENSION
-        
+
         # Get more chunks for comprehensive summary
         all_docs = await vector_store_service.search_similar(
             query_embedding=dummy_embedding,
             crawl_id=crawl_id,
             limit=50,  # Get more content for summary
-            score_threshold=0.0  # No filtering, get all content
+            score_threshold=0.0,  # No filtering, get all content
         )
-        
+
         if not all_docs:
             raise HTTPException(
                 status_code=404,
-                detail=f"No content found for chat '{request.chat_id}'. Please scrape a website first."
+                detail=f"No content found for chat '{request.chat_id}'. Please scrape a website first.",
             )
-        
+
         # Combine all document content
-        combined_content = "\n\n".join([
-            f"Section {i+1}:\n{doc.get('markdown', '')}" 
-            for i, doc in enumerate(all_docs[:20])  # Limit to avoid token limits
-        ])
-        
+        combined_content = "\n\n".join(
+            [
+                f"Section {i+1}:\n{doc.get('markdown', '')}"
+                for i, doc in enumerate(all_docs[:20])  # Limit to avoid token limits
+            ]
+        )
+
         # Create structured prompt for bullet-point summary
         summary_prompt = f"""You are a professional content summarizer. Your task is to create a concise, well-structured summary of the following webpage content.
 
@@ -1087,13 +1209,14 @@ You MUST format your response EXACTLY like this example:
 IMPORTANT: Put each bullet on its own line with a blank line after it. Do NOT put multiple bullets on the same line.
 
 Now provide the summary following this exact format:"""
-        
+
         # Generate summary using RAG service's LLM
         from langchain_core.messages import HumanMessage
+
         response = await rag_service.llm.ainvoke([HumanMessage(content=summary_prompt)])
-        
+
         summary_text = response.content.strip()
-        
+
         return SummarizeResponse(
             summary=summary_text,
             chat_id=request.chat_id,
@@ -1101,17 +1224,14 @@ Now provide the summary following this exact format:"""
             metadata={
                 "model": "gemini-pro-latest",
                 "chunks_used": len(all_docs),
-                "content_length": len(combined_content)
-            }
+                "content_length": len(combined_content),
+            },
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Summarization failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Summarization failed: {str(e)}")
 
 
 @router.get("/chats/{chat_id}/history")
@@ -1125,22 +1245,14 @@ async def get_chat_history(chat_id: str, limit: Optional[int] = None):
         chat = db_service.get_chat(chat_id)
         if not chat:
             raise HTTPException(
-                status_code=404,
-                detail=f"Chat ID '{chat_id}' not found"
+                status_code=404, detail=f"Chat ID '{chat_id}' not found"
             )
-        
+
         messages = db_service.get_messages(chat_id, limit)
-        return {
-            "chat_id": chat_id,
-            "messages": messages,
-            "count": len(messages)
-        }
+        return {"chat_id": chat_id, "messages": messages, "count": len(messages)}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve chat history: {str(e)}"
+            status_code=500, detail=f"Failed to retrieve chat history: {str(e)}"
         )
-
-

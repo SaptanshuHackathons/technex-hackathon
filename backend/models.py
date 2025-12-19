@@ -7,6 +7,7 @@ class ScrapeRequest(BaseModel):
     max_depth: Optional[int] = 3
     crawl_id: Optional[str] = None  # If not provided, will be generated
     force_refresh: Optional[bool] = False  # Force re-scraping even if data exists
+    enable_deep_scrape: Optional[bool] = False  # Enable background deep link discovery
 
 
 class PageInfo(BaseModel):
@@ -52,8 +53,10 @@ class CreateChatRequest(BaseModel):
 
 # ============== Widget-specific Models ==============
 
+
 class WidgetPage(BaseModel):
     """A single page to scrape for the widget."""
+
     url: str
     label: Optional[str] = None
     metadata: Optional[Dict[str, str]] = None
@@ -61,6 +64,7 @@ class WidgetPage(BaseModel):
 
 class WidgetInitRequest(BaseModel):
     """Request to initialize or check embeddings for a widget site."""
+
     site_id: str  # Unique identifier for the site
     api_key: str  # Widget API key for authentication
     pages: List[WidgetPage]  # Pages to index (only used if no embeddings exist)
@@ -68,6 +72,7 @@ class WidgetInitRequest(BaseModel):
 
 class WidgetInitResponse(BaseModel):
     """Response from widget initialization."""
+
     success: bool
     site_id: str
     has_embeddings: bool
@@ -77,6 +82,7 @@ class WidgetInitResponse(BaseModel):
 
 class WidgetQueryRequest(BaseModel):
     """Query request from the widget."""
+
     site_id: str
     api_key: str
     query: str
@@ -85,6 +91,7 @@ class WidgetQueryRequest(BaseModel):
 
 class WidgetQueryResponse(BaseModel):
     """Query response for the widget."""
+
     answer: str
     sources: List[Source]
     site_id: str
@@ -92,6 +99,7 @@ class WidgetQueryResponse(BaseModel):
 
 class WidgetRefreshRequest(BaseModel):
     """Request to refresh embeddings for a widget site."""
+
     site_id: str
     api_key: str
     pages: List[WidgetPage]  # Pages to re-index
@@ -99,10 +107,12 @@ class WidgetRefreshRequest(BaseModel):
 
 class WidgetRefreshResponse(BaseModel):
     """Response from embedding refresh."""
+
     success: bool
     site_id: str
     indexed_page_count: int
     message: str
+
 
 class SummarizeRequest(BaseModel):
     chat_id: str  # Required: identifies which crawl/chat session to summarize
@@ -113,3 +123,22 @@ class SummarizeResponse(BaseModel):
     chat_id: str
     crawl_id: Optional[str] = None
     metadata: Dict[str, Any]
+
+
+# ============== Deep Scraping Models ==============
+
+
+class CrawlProgressResponse(BaseModel):
+    """Response containing crawl progress information."""
+
+    crawl_id: str
+    status: str  # queued/scraping/indexing/completed/failed/cancelled
+    current_depth: int
+    max_depth: int
+    total_links_found: int
+    total_pages: int
+    pages_pending: int
+    pages_scraped: int
+    pages_indexed: int
+    pages_failed: int
+    progress_percentage: int

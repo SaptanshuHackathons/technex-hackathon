@@ -27,7 +27,7 @@ export function BentoGrid() {
                 >
                     <h2 className="text-4xl font-bold tracking-tight sm:text-5xl mb-4">
                         Everything you need to{" "}
-                        <span className="bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">
+                        <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
                             scrape smarter
                         </span>
                     </h2>
@@ -39,11 +39,11 @@ export function BentoGrid() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[minmax(180px,auto)]">
                     {/* API Integration Card - Large Vertical */}
                     <div className="md:col-span-2 md:row-span-2 group relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl transition-all duration-300">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-gradient-to-br from-orange-500/20 to-amber-500/20 blur-3xl rounded-full" />
+                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 blur-3xl rounded-full" />
 
                         <div className="p-8 flex flex-col h-full relative z-10">
                             <div className="flex items-center gap-3 mb-4">
-                                <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                     <Code2 className="w-6 h-6" />
                                 </div>
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">API Integration</h3>
@@ -69,7 +69,7 @@ export function BentoGrid() {
                                     </div>
                                     <div className="flex">
                                         <span className="text-zinc-600 w-6 select-none">2</span>
-                                        <span className="pl-4"><span className="text-green-400">'https://api.beebot.ai/scrape'</span>,</span>
+                                        <span className="pl-4"><span className="text-green-400">'https://api.astra.ai/scrape'</span>,</span>
                                     </div>
                                     <div className="flex">
                                         <span className="text-zinc-600 w-6 select-none">3</span>
@@ -106,7 +106,7 @@ export function BentoGrid() {
 
                     {/* Scheduled Scraping - Wide Top Right */}
                     <div className="md:col-span-2 group relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl transition-all duration-300">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-500/10 to-cyan-500/10 blur-3xl rounded-full" />
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-emerald-500/10 to-teal-500/10 blur-3xl rounded-full" />
 
                         <div className="p-8 relative z-10">
                             <div className="flex items-start justify-between">

@@ -250,6 +250,74 @@
   margin-top: 0.25rem;
 }
 
+/* Markdown styling for AI messages */
+.astra-message-markdown {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.25rem 0;
+}
+
+.astra-message-markdown p {
+  margin: 0.25em 0;
+}
+
+.astra-message-markdown strong {
+  font-weight: 700;
+}
+
+.astra-message-markdown a {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.astra-message.user .astra-message-markdown a {
+  color: white;
+  text-decoration: underline;
+}
+
+.astra-message-markdown a:hover {
+  opacity: 0.8;
+}
+
+.astra-message-markdown ul,
+.astra-message-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.astra-message-markdown li {
+  margin: 0.25em 0;
+}
+
+.astra-message-markdown code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+}
+
+.astra-message.user .astra-message-markdown code {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.astra-message-markdown pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.75em;
+  border-radius: 0.375em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.astra-message.user .astra-message-markdown pre {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.astra-message-markdown pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
 /* Loading Indicator */
 .astra-loading {
   display: flex;

@@ -29,7 +29,6 @@ def _get_supabase_client() -> Client:
     return client
 
 
-
 class DatabaseService:
     def __init__(self):
         # Use singleton client for connection pooling
@@ -37,7 +36,7 @@ class DatabaseService:
         # Alias for compatibility
         self.widget_supabase = self.supabase
         print(f"DatabaseService initialized with Supabase")
-    
+
     def create_crawl(self, url: str, crawl_id: Optional[str] = None) -> str:
         """
         Create a new crawl session.
@@ -107,7 +106,6 @@ class DatabaseService:
         )
         return result.data if result.data else []
 
-
     def create_chat(self, crawl_id: str, chat_id: Optional[str] = None) -> str:
         """
         Create a new chat session linked to a crawl.
@@ -131,59 +129,96 @@ class DatabaseService:
         result = self.supabase.table("chats").select("*").eq("id", chat_id).execute()
         return result.data[0] if result.data else None
 
-
     def get_crawl_id_from_chat_id(self, chat_id: str) -> Optional[str]:
         """Get the crawl_id associated with a chat_id."""
         chat = self.get_chat(chat_id)
         if chat:
             return chat.get("crawl_id")
         return None
-    
-    def add_message(self, chat_id: str, role: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+
+    def find_chat_by_crawl_id(self, crawl_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Find an existing chat for a crawl.
+        Returns the most recent chat for the given crawl_id.
+
+        Args:
+            crawl_id: The crawl ID to search for
+
+        Returns:
+            The chat metadata if found, None otherwise
+        """
+        result = (
+            self.supabase.table("chats")
+            .select("*")
+            .eq("crawl_id", crawl_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def add_message(
+        self,
+        chat_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """
         Add a message to a chat.
-        
+
         Args:
             chat_id: The chat ID
             role: 'user' or 'assistant'
             content: Message content
             metadata: Optional metadata (e.g., sources, model info)
-            
+
         Returns:
             The message_id
         """
         message_id = str(uuid.uuid4())
+
+        # Extract sources from metadata if present
+        sources = []
+        if metadata and "sources" in metadata:
+            sources = metadata.pop("sources")
+
         data = {
             "id": message_id,
             "chat_id": chat_id,
             "role": role,
             "content": content,
-            "metadata": metadata or {}
+            "sources": sources,
         }
-        
+
         self.supabase.table("messages").insert(data).execute()
         return message_id
-    
-    def get_messages(self, chat_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+
+    def get_messages(
+        self, chat_id: str, limit: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get messages for a chat, ordered by creation time.
-        
+
         Args:
             chat_id: The chat ID
             limit: Optional limit on number of messages to return (most recent)
-            
+
         Returns:
             List of messages
         """
-        query = self.supabase.table("messages").select("*").eq("chat_id", chat_id).order("created_at", desc=False)
-        
+        query = (
+            self.supabase.table("messages")
+            .select("*")
+            .eq("chat_id", chat_id)
+            .order("created_at", desc=False)
+        )
+
         if limit:
             query = query.limit(limit)
-        
+
         response = query.execute()
         return response.data
-
-
 
     def store_page(
         self,
@@ -239,9 +274,9 @@ class DatabaseService:
 
     def get_crawl_tree(self, crawl_id: str) -> List[Dict[str, Any]]:
         """
-        Get all pages for a crawl in a hierarchical structure.
+        Get all pages for a crawl as a flat list.
 
-        Returns a list of root pages, each with nested children.
+        Returns a list of all pages, each with an empty children array for frontend compatibility.
         """
         # Fetch all pages for this crawl
         result = (
@@ -255,20 +290,8 @@ class DatabaseService:
         if not result.data:
             return []
 
-        # Build a map of pages by ID
-        pages_by_id = {page["id"]: {**page, "children": []} for page in result.data}
-
-        # Build the tree structure
-        root_pages = []
-        for page in result.data:
-            if page["parent_id"] is None:
-                root_pages.append(pages_by_id[page["id"]])
-            elif page["parent_id"] in pages_by_id:
-                pages_by_id[page["parent_id"]]["children"].append(
-                    pages_by_id[page["id"]]
-                )
-
-        return root_pages
+        # Return all pages as root-level items with empty children arrays
+        return [{**page, "children": []} for page in result.data]
 
     def list_crawls(self) -> List[Dict[str, Any]]:
         """List all crawls."""
@@ -354,3 +377,171 @@ class DatabaseService:
         except Exception as e:
             print(f"Error deleting chat {chat_id}: {str(e)}")
             return False
+
+    # ============== Deep Scraping Methods ==============
+
+    def update_crawl_status(
+        self,
+        crawl_id: str,
+        status: str = None,
+        current_depth: int = None,
+        total_links: int = None,
+        max_depth: int = None,
+    ):
+        """
+        Update crawl status and progress tracking fields.
+
+        Args:
+            crawl_id: The crawl ID
+            status: New status (queued/scraping/indexing/completed/failed/cancelled)
+            current_depth: Current crawl depth being processed
+            total_links: Total number of unique links discovered
+            max_depth: Maximum depth to crawl
+        """
+        data = {}
+        if status is not None:
+            data["status"] = status
+        if current_depth is not None:
+            data["current_depth"] = current_depth
+        if total_links is not None:
+            data["total_links_found"] = total_links
+        if max_depth is not None:
+            data["max_depth"] = max_depth
+
+        if data:
+            self.supabase.table("crawls").update(data).eq("id", crawl_id).execute()
+
+    def add_pending_page(
+        self,
+        crawl_id: str,
+        url: str,
+        title: str,
+        depth: int,
+        discovered_from_page_id: str = None,
+    ) -> str:
+        """
+        Add a page with pending status for future scraping.
+
+        Args:
+            crawl_id: The crawl session ID
+            url: Page URL to scrape
+            title: Page title (can be empty)
+            depth: Crawl depth level (0 = root page, 1 = linked from root, etc.)
+            discovered_from_page_id: ID of the page where this link was found
+
+        Returns:
+            The page_id
+        """
+        metadata = {
+            "status": "pending",
+            "depth": depth,
+        }
+        if discovered_from_page_id:
+            metadata["discovered_from_page_id"] = discovered_from_page_id
+
+        return self.store_page(
+            crawl_id=crawl_id, url=url, title=title or url, metadata=metadata
+        )
+
+    def get_pending_pages(self, crawl_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get pages with pending status for a crawl.
+
+        Args:
+            crawl_id: The crawl ID
+            limit: Maximum number of pages to return
+
+        Returns:
+            List of pending page records
+        """
+        # Query pages where metadata->>'status' = 'pending'
+        result = (
+            self.supabase.table("pages")
+            .select("*")
+            .eq("crawl_id", crawl_id)
+            .eq("metadata->>status", "pending")  # JSON field query
+            .order("created_at")
+            .limit(limit)
+            .execute()
+        )
+        return result.data if result.data else []
+
+    def update_page_status(
+        self, page_id: str, status: str, additional_metadata: Dict[str, Any] = None
+    ):
+        """
+        Update the status of a page in its metadata.
+
+        Args:
+            page_id: The page ID
+            status: New status (pending/scraped/indexed/failed)
+            additional_metadata: Additional metadata fields to update
+        """
+        # Fetch current page to get existing metadata
+        result = (
+            self.supabase.table("pages").select("metadata").eq("id", page_id).execute()
+        )
+
+        if not result.data:
+            return
+
+        current_metadata = result.data[0].get("metadata", {})
+        current_metadata["status"] = status
+
+        if additional_metadata:
+            current_metadata.update(additional_metadata)
+
+        # Update the page with new metadata
+        self.supabase.table("pages").update({"metadata": current_metadata}).eq(
+            "id", page_id
+        ).execute()
+
+    def get_crawl_progress(self, crawl_id: str) -> Dict[str, Any]:
+        """
+        Get detailed progress statistics for a crawl.
+
+        Args:
+            crawl_id: The crawl ID
+
+        Returns:
+            Dictionary with progress stats
+        """
+        # Get crawl metadata
+        crawl = self.get_crawl(crawl_id)
+        if not crawl:
+            return {
+                "error": "Crawl not found",
+                "crawl_id": crawl_id,
+            }
+
+        # Get all pages for this crawl
+        all_pages = self.get_crawl_pages(crawl_id)
+
+        # Count pages by status
+        status_counts = {"pending": 0, "scraped": 0, "indexed": 0, "failed": 0}
+
+        for page in all_pages:
+            page_status = page.get("metadata", {}).get("status", "indexed")
+            if page_status in status_counts:
+                status_counts[page_status] += 1
+            else:
+                # Default to indexed for pages without status
+                status_counts["indexed"] += 1
+
+        return {
+            "crawl_id": crawl_id,
+            "status": crawl.get("status", "completed"),
+            "current_depth": crawl.get("current_depth", 0),
+            "max_depth": crawl.get("max_depth", 1),
+            "total_links_found": crawl.get("total_links_found", 0),
+            "total_pages": len(all_pages),
+            "pages_pending": status_counts["pending"],
+            "pages_scraped": status_counts["scraped"],
+            "pages_indexed": status_counts["indexed"],
+            "pages_failed": status_counts["failed"],
+            "progress_percentage": (
+                int((status_counts["indexed"] / len(all_pages)) * 100)
+                if all_pages
+                else 100
+            ),
+        }

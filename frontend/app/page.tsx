@@ -25,7 +25,7 @@ export default function Page() {
 
                     <h1 className="mx-auto max-w-4xl text-5xl font-bold tracking-tight sm:text-7xl">
                         Turn websites into <br />
-                        <span className="bg-linear-to-r from-[#ff4500] to-[#ff8c00] bg-clip-text text-transparent">
+                        <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
                             LLM-ready
                         </span>{" "}
                         data
@@ -60,10 +60,10 @@ export default function Page() {
             {/* Background Decor */}
             <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
                 <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 blur-3xl opacity-20">
-                    <div className="aspect-square w-[600px] rounded-full bg-gradient-to-bl from-orange-500 to-amber-300" />
+                    <div className="aspect-square w-[600px] rounded-full bg-gradient-to-bl from-emerald-500 to-teal-300" />
                 </div>
                 <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 blur-3xl opacity-20">
-                    <div className="aspect-square w-[600px] rounded-full bg-gradient-to-tr from-blue-500 to-cyan-300" />
+                    <div className="aspect-square w-[600px] rounded-full bg-gradient-to-tr from-emerald-600 to-jade-400" />
                 </div>
             </div>
         </div>

@@ -41,7 +41,7 @@ function StatItem({ value, label, delay }: StatItemProps) {
             transition={{ duration: 0.6, delay }}
             className="text-center"
         >
-            <div className="mb-2 text-5xl sm:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-[#ff4500] to-[#ff8c00] bg-clip-text text-transparent">
+            <div className="mb-2 text-5xl sm:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
                 {count.toLocaleString()}{suffix}
             </div>
             <div className="text-lg text-gray-600 dark:text-gray-400 font-medium">
@@ -55,7 +55,7 @@ export function Stats() {
     return (
         <section className="w-full py-24 px-4 relative overflow-hidden">
             {/* Background Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-orange-500/5 to-transparent dark:via-orange-500/10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/5 to-transparent dark:via-emerald-500/10" />
 
             <div className="mx-auto max-w-7xl relative z-10">
                 <motion.div
@@ -67,7 +67,7 @@ export function Stats() {
                 >
                     <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
                         Trusted by{" "}
-                        <span className="bg-gradient-to-r from-[#ff4500] to-[#ff8c00] bg-clip-text text-transparent">
+                        <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
                             developers
                         </span>{" "}
                         worldwide

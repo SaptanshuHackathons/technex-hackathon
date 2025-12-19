@@ -4,7 +4,7 @@ import { ChatSidebar } from "@/components/chat/sidebar";
 
 export default function ChatPage() {
     return (
-        <div className="flex h-screen w-full bg-white dark:bg-black">
+        <div className="flex h-screen w-full bg-gradient-to-br from-emerald-50 via-white to-emerald-50/30 dark:from-emerald-950/20 dark:via-black dark:to-emerald-950/10">
             <ChatSidebar />
             <main className="flex-1 min-w-0">
                 <ChatArea />

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Download, Database, FileText, Loader2, ExternalLink } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Message } from '../services/api';
 
 interface ChatInterfaceProps {
@@ -134,9 +136,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   : 'bg-secondary text-secondary-foreground rounded-bl-none'}
               `}
             >
-              <div className="whitespace-pre-wrap break-words">
-                {msg.content}
-              </div>
+              {msg.role === 'ai' ? (
+                <div className="prose prose-sm max-w-none prose-p:my-1 prose-strong:font-bold prose-a:text-blue-600 prose-a:font-medium prose-a:underline hover:prose-a:text-blue-700">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap break-words">
+                  {msg.content}
+                </div>
+              )}
             </div>
           </div>
         ))}

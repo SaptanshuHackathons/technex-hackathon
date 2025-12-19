@@ -10,13 +10,16 @@ import {
     Sparkles,
     MessageSquare,
     Clock,
-    Trash2
+    Trash2,
+    Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import * as React from "react";
 import { useChatStore } from "@/lib/store";
 import { TreeNode } from "@/lib/api";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { CrawlProgressIndicator } from "./crawl-progress";
 
 interface SidebarProps {
     className?: string;
@@ -60,7 +63,7 @@ function TreeNodeComponent({ node, level = 0 }: { node: TreeNode; level?: number
             {hasChildren && isExpanded && (
                 <div>
                     {node.children.map((child) => (
-                        <TreeNodeComponent key={child.id} node={child} level={level + 1} />
+                        <TreeNodeComponent key={child.id || child.url} node={child} level={level + 1} />
                     ))}
                 </div>
             )}
@@ -69,7 +72,18 @@ function TreeNodeComponent({ node, level = 0 }: { node: TreeNode; level?: number
 }
 
 export function ChatSidebar({ className }: SidebarProps) {
-    const { pageTree, isLoadingTree, chatId, setChatId, previousChats, loadPreviousChats, isLoadingChats, deleteChat } = useChatStore();
+    const {
+        pageTree,
+        isLoadingTree,
+        chatId,
+        setChatId,
+        previousChats,
+        loadPreviousChats,
+        isLoadingChats,
+        deleteChat,
+        activeCrawls,
+        cancelCrawl
+    } = useChatStore();
     const searchParams = useSearchParams();
     const router = useRouter();
     const [deletingChatId, setDeletingChatId] = React.useState<string | null>(null);
@@ -78,9 +92,12 @@ export function ChatSidebar({ className }: SidebarProps) {
     React.useEffect(() => {
         const urlChatId = searchParams.get("id");
         if (urlChatId && urlChatId !== chatId) {
-            setChatId(urlChatId);
+            setChatId(urlChatId).catch((error) => {
+                console.error("Chat not found:", error);
+                router.push("/");
+            });
         }
-    }, [searchParams, chatId, setChatId]);
+    }, [searchParams, chatId, setChatId, router]);
 
     // Load previous chats on mount
     React.useEffect(() => {
@@ -89,7 +106,7 @@ export function ChatSidebar({ className }: SidebarProps) {
 
     const handleDeleteChat = async (chatIdToDelete: string, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent chat selection
-        
+
         if (!confirm("Are you sure you want to delete this chat? This action cannot be undone.")) {
             return;
         }
@@ -124,14 +141,14 @@ export function ChatSidebar({ className }: SidebarProps) {
     };
 
     return (
-        <div className={cn("hidden h-screen w-72 flex-col border-r bg-white p-4 dark:border-white/5 dark:bg-zinc-950 md:flex", className)}>
+        <div className={cn("hidden h-screen w-72 flex-col border-r border-emerald-200 bg-linear-to-b from-emerald-50/50 to-white p-4 dark:border-emerald-900/30 dark:from-emerald-950/30 dark:to-zinc-950 md:flex", className)}>
             {/* Logo Area */}
             <div className="mb-6 flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-emerald-600 to-emerald-700 text-white dark:from-emerald-500 dark:to-emerald-600">
                         <Sparkles className="h-4 w-4 fill-current" />
                     </div>
-                    <span className="font-bold text-lg">BeeBot</span>
+                    <span className="font-bold text-lg"><Link href="/"> Astra </Link></span>
                 </div>
                 <Button
                     size="icon"
@@ -142,6 +159,28 @@ export function ChatSidebar({ className }: SidebarProps) {
                     <Plus className="h-4 w-4" />
                 </Button>
             </div>
+
+            {/* Active Crawls Section */}
+            {activeCrawls.size > 0 && (
+                <div className="p-4 border-b border-gray-200 dark:border-zinc-800">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <h3 className="font-semibold text-sm">Active Crawls</h3>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                            {activeCrawls.size}
+                        </span>
+                    </div>
+                    <div className="space-y-2">
+                        {Array.from(activeCrawls.values()).map((progress) => (
+                            <CrawlProgressIndicator
+                                key={progress.crawl_id}
+                                progress={progress}
+                                onCancel={cancelCrawl}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Scrollable Content */}
             <div className="flex-1 space-y-6 overflow-y-auto px-2">
@@ -159,56 +198,61 @@ export function ChatSidebar({ className }: SidebarProps) {
                     ) : (
                         <div className="space-y-1">
                             {previousChats.slice(0, 10).map((chat) => {
-                                const displayName = chat.title || 
+                                const displayName = chat.title ||
                                     (chat.url ? new URL(chat.url).hostname : "Unknown");
-                                const truncatedName = displayName.length > 35 
-                                    ? displayName.substring(0, 35) + "..." 
+                                const truncatedName = displayName.length > 35
+                                    ? displayName.substring(0, 35) + "..."
                                     : displayName;
-                                
+
                                 return (
-                                <div
-                                    key={chat.id}
-                                    className={cn(
-                                        "group flex items-start gap-2 rounded-lg px-2 py-2 text-sm cursor-pointer transition-colors",
-                                        chat.id === chatId
-                                            ? "bg-gray-100 dark:bg-zinc-800"
-                                            : "hover:bg-gray-50 dark:hover:bg-zinc-900"
-                                    )}
-                                    onClick={() => router.push(`/chat?id=${chat.id}`)}
-                                >
-                                    <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="truncate text-gray-700 dark:text-gray-300 font-medium" title={displayName}>
-                                            {truncatedName}
-                                        </div>
-                                        <div className="text-xs text-gray-500 dark:text-gray-500">
-                                            {formatTimeAgo(chat.created_at)} • {chat.page_count} page{chat.page_count !== 1 ? 's' : ''}
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={(e) => handleDeleteChat(chat.id, e)}
-                                        disabled={deletingChatId === chat.id}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                                        title="Delete chat"
-                                    >
-                                        {deletingChatId === chat.id ? (
-                                            <div className="h-3.5 w-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                                        ) : (
-                                            <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400" />
+                                    <div
+                                        key={chat.id}
+                                        className={cn(
+                                            "group flex items-start gap-2 rounded-lg px-2 py-2 text-sm cursor-pointer transition-colors",
+                                            chat.id === chatId
+                                                ? "bg-emerald-100 dark:bg-emerald-900/30"
+                                                : "hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                                         )}
-                                    </button>
-                                </div>
+                                        onClick={() => router.push(`/chat?id=${chat.id}`)}
+                                    >
+                                        <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="truncate text-gray-700 dark:text-gray-300 font-medium" title={displayName}>
+                                                {truncatedName}
+                                            </div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-500">
+                                                {formatTimeAgo(chat.created_at)} • {chat.page_count} page{chat.page_count !== 1 ? 's' : ''}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={(e) => handleDeleteChat(chat.id, e)}
+                                            disabled={deletingChatId === chat.id}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                            title="Delete chat"
+                                        >
+                                            {deletingChatId === chat.id ? (
+                                                <div className="h-3.5 w-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400" />
+                                            )}
+                                        </button>
+                                    </div>
                                 );
                             })}
                         </div>
                     )}
                 </div>
 
-                {/* Indexed Pages Section */}
+                {/* Citations / Indexed Pages Section */}
                 <div>
                     <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         <FileText className="h-3.5 w-3.5" />
-                        <span>Indexed Pages</span>
+                        <span>Citations</span>
+                        {pageTree && pageTree.length > 0 && (
+                            <span className="ml-auto text-emerald-600 dark:text-emerald-400">
+                                {pageTree.length}
+                            </span>
+                        )}
                     </div>
 
                     {isLoadingTree ? (
@@ -216,9 +260,9 @@ export function ChatSidebar({ className }: SidebarProps) {
                     ) : !pageTree || pageTree.length === 0 ? (
                         <div className="text-sm text-gray-500 px-2">No pages indexed yet</div>
                     ) : (
-                        <div className="space-y-1">
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
                             {pageTree.map((node) => (
-                                <TreeNodeComponent key={node.url} node={node} />
+                                <TreeNodeComponent key={node.id || node.url} node={node} />
                             ))}
                         </div>
                     )}
@@ -228,7 +272,7 @@ export function ChatSidebar({ className }: SidebarProps) {
             {/* User Profile Mock/Settings */}
             <div className="mt-auto border-t pt-4 dark:border-white/5">
                 <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-zinc-900">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500" />
+                    <div className="h-8 w-8 rounded-full bg-linear-to-tr from-purple-500 to-pink-500" />
                     <div className="flex flex-col">
                         <span className="text-sm font-medium">User</span>
                         <span className="text-xs text-gray-500">Free Plan</span>

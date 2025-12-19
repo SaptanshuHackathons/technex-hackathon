@@ -40,3 +40,60 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Markdown styling for AI messages */
+.prose {
+  color: inherit;
+}
+
+.prose p {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.prose strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+.prose a {
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.prose a:hover {
+  color: #1d4ed8;
+}
+
+.prose ul, .prose ol {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.prose code {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  font-size: 0.875em;
+}
+
+.prose pre {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.75em;
+  border-radius: 0.375em;
+  overflow-x: auto;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+}

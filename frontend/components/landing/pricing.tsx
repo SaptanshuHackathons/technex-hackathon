@@ -107,7 +107,7 @@ export function Pricing() {
                             {/* Popular Badge */}
                             {plan.popular && (
                                 <div className="absolute -top-5 left-0 right-0 flex justify-center z-20">
-                                    <div className="rounded-full bg-linear-to-r from-[#ff4500] to-[#ff8c00] px-5 py-1.5 text-xs font-semibold text-white shadow-lg">
+                                    <div className="rounded-full bg-gradient-to-r from-emerald-600 to-teal-500 px-5 py-1.5 text-xs font-semibold text-white shadow-lg">
                                         Most popular plan
                                     </div>
                                 </div>
@@ -115,13 +115,13 @@ export function Pricing() {
 
                             <div
                                 className={`group relative overflow-hidden rounded-3xl border bg-white p-8 shadow-lg transition-all duration-300 hover:shadow-2xl dark:bg-zinc-900 ${plan.popular
-                                    ? "border-[#ff4500]/50 dark:border-[#ff4500]/50"
+                                    ? "border-emerald-500/50 dark:border-emerald-500/50"
                                     : "border-black/5 dark:border-white/10"
                                     }`}
                             >
                                 {/* Background Gradient */}
                                 {plan.popular && (
-                                    <div className="absolute inset-0 bg-gradient-to-br from-[#ff4500]/5 via-transparent to-transparent" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent" />
                                 )}
 
                                 <div className="relative z-10">
@@ -166,7 +166,7 @@ export function Pricing() {
                                     <div className="space-y-3">
                                         <Button
                                             className={`w-full rounded-xl py-6 font-semibold transition-all ${plan.popular
-                                                ? "bg-gradient-to-r from-[#ff4500] to-[#ff8c00] text-white hover:from-[#ff5500] hover:to-[#ff9c00] shadow-lg shadow-[#ff4500]/25"
+                                                ? "bg-gradient-to-r from-emerald-600 to-teal-500 text-white hover:from-emerald-700 hover:to-teal-600 shadow-lg shadow-emerald-500/25"
                                                 : "bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/90"
                                                 }`}
                                         >
