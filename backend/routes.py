@@ -157,8 +157,59 @@ async def scrape_stream_generator(request: ScrapeRequest):
                                 max_pages_to_analyze=5,
                             )
 
+                            # Generate a meaningful chat title
                             page_count = len(pages_data)
-                            summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
+
+                            # Try to get a good title from the main page or URL structure
+                            main_page_title = None
+                            if pages_data:
+                                # Get title from first page (main page)
+                                main_page_title = (
+                                    pages_data[0].get("metadata", {}).get("title", "")
+                                )
+
+                            # If no good title from page, generate from URL
+                            if not main_page_title or main_page_title == request.url:
+                                try:
+                                    from urllib.parse import urlparse
+
+                                    parsed = urlparse(request.url)
+                                    domain = parsed.netloc.replace("www.", "")
+                                    path = parsed.path.strip("/").split("/")[
+                                        -1
+                                    ]  # Get last path segment
+
+                                    if path and path not in [
+                                        "index",
+                                        "index.html",
+                                        "home",
+                                    ]:
+                                        # Convert path to readable title (e.g., "api-docs" -> "API Docs")
+                                        title_words = (
+                                            path.replace("-", " ")
+                                            .replace("_", " ")
+                                            .split()
+                                        )
+                                        summary = " ".join(
+                                            word.capitalize() for word in title_words
+                                        )
+                                        if page_count > 1:
+                                            summary += f" ({page_count} pages)"
+                                    else:
+                                        # Just use domain
+                                        summary = domain.split(".")[0].capitalize()
+                                        if page_count > 1:
+                                            summary += f" ({page_count} pages)"
+                                except Exception:
+                                    summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''}"
+                            else:
+                                # Use the page title, trim if too long
+                                summary = main_page_title[:50] + (
+                                    "..." if len(main_page_title) > 50 else ""
+                                )
+                                if page_count > 1:
+                                    summary += f" ({page_count} pages)"
+
                             db_service.update_chat_summary(chat_id, summary)
 
                             pages_list = "\n".join(
@@ -335,8 +386,41 @@ async def scrape_stream_generator(request: ScrapeRequest):
             pages_data=pages_data, domain=domain, max_pages_to_analyze=5
         )
 
+        # Generate a meaningful chat title
         page_count = len(pages_data)
-        summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
+
+        # Try to get title from main page
+        main_page_title = None
+        if pages_data:
+            main_page_title = pages_data[0].get("metadata", {}).get("title", "")
+
+        # If no good title from page, generate from URL
+        if not main_page_title or main_page_title == request.url:
+            try:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(request.url)
+                domain_name = parsed.netloc.replace("www.", "")
+                path = parsed.path.strip("/").split("/")[-1]
+
+                if path and path not in ["index", "index.html", "home"]:
+                    title_words = path.replace("-", " ").replace("_", " ").split()
+                    summary = " ".join(word.capitalize() for word in title_words)
+                    if page_count > 1:
+                        summary += f" ({page_count} pages)"
+                else:
+                    summary = domain_name.split(".")[0].capitalize()
+                    if page_count > 1:
+                        summary += f" ({page_count} pages)"
+            except Exception:
+                summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''}"
+        else:
+            summary = main_page_title[:50] + (
+                "..." if len(main_page_title) > 50 else ""
+            )
+            if page_count > 1:
+                summary += f" ({page_count} pages)"
+
         db_service.update_chat_summary(chat_id, summary)
 
         pages_list = "\n".join(
@@ -567,9 +651,41 @@ async def scrape_website(request: ScrapeRequest):
             pages_data=pages_data, domain=domain, max_pages_to_analyze=5
         )
 
-        # Store short summary for chat metadata
+        # Generate a meaningful chat title
         page_count = len(pages_data)
-        summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
+
+        # Try to get title from main page
+        main_page_title = None
+        if pages_data:
+            main_page_title = pages_data[0].get("metadata", {}).get("title", "")
+
+        # If no good title from page, generate from URL
+        if not main_page_title or main_page_title == request.url:
+            try:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(request.url)
+                domain_name = parsed.netloc.replace("www.", "")
+                path = parsed.path.strip("/").split("/")[-1]
+
+                if path and path not in ["index", "index.html", "home"]:
+                    title_words = path.replace("-", " ").replace("_", " ").split()
+                    summary = " ".join(word.capitalize() for word in title_words)
+                    if page_count > 1:
+                        summary += f" ({page_count} pages)"
+                else:
+                    summary = domain_name.split(".")[0].capitalize()
+                    if page_count > 1:
+                        summary += f" ({page_count} pages)"
+            except Exception:
+                summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''}"
+        else:
+            summary = main_page_title[:50] + (
+                "..." if len(main_page_title) > 50 else ""
+            )
+            if page_count > 1:
+                summary += f" ({page_count} pages)"
+
         db_service.update_chat_summary(chat_id, summary)
 
         # Get page titles list
