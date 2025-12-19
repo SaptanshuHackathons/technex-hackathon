@@ -22,65 +22,6 @@ class ScraperService:
                 return f"{parts[0]}//{parts[2]}"
             return url
 
-    def extract_links_from_markdown(self, markdown: str, base_url: str) -> List[str]:
-        """
-        Extract all links from markdown content.
-        Returns list of absolute URLs found in the markdown.
-        Filters to same-domain links only.
-        """
-        import re
-
-        if not markdown:
-            return []
-
-        # Extract markdown links: [text](url)
-        markdown_link_pattern = r"\[([^\]]+)\]\(([^\)]+)\)"
-        # Extract bare URLs: http://... or https://...
-        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
-
-        links = set()
-
-        # Find markdown-style links
-        for match in re.finditer(markdown_link_pattern, markdown):
-            url = match.group(2)
-            if url and not url.startswith("#"):  # Skip anchor links
-                links.add(url)
-
-        # Find bare URLs
-        for match in re.finditer(url_pattern, markdown):
-            url = match.group(0)
-            links.add(url)
-
-        # Convert relative URLs to absolute and filter by domain
-        absolute_links = []
-        base_domain = urlparse(base_url).netloc
-
-        for link in links:
-            # Skip mailto, javascript, etc.
-            if link.startswith(("mailto:", "javascript:", "tel:", "data:")):
-                continue
-
-            # Handle relative URLs
-            if link.startswith("/"):
-                absolute_url = f"{base_url.rstrip('/')}{link}"
-            elif link.startswith("./"):
-                absolute_url = f"{base_url.rstrip('/')}/{link[2:]}"
-            elif not link.startswith(("http://", "https://")):
-                # Relative URL without leading slash
-                absolute_url = f"{base_url.rstrip('/')}/{link}"
-            else:
-                absolute_url = link
-
-            # Filter to same domain only
-            try:
-                link_domain = urlparse(absolute_url).netloc
-                if link_domain == base_domain:
-                    absolute_links.append(absolute_url)
-            except Exception:
-                continue
-
-        return list(set(absolute_links))  # Remove duplicates
-
     async def scrape_site(
         self, url: str, max_depth: int = 3, crawl_id: str = None
     ) -> List[Dict[str, Any]]:

@@ -21,7 +21,6 @@ from models import (
     WidgetRefreshResponse,
     SummarizeRequest,
     SummarizeResponse,
-    CrawlProgressResponse,
 )
 from config import WIDGET_API_KEY_PREFIX
 from services.scraper import ScraperService
@@ -30,7 +29,6 @@ from services.vector_store import VectorStoreService
 from services.rag import RAGService
 from services.database import DatabaseService
 from services.chunking import ChunkingService
-from services.background_tasks import background_task_manager
 
 router = APIRouter()
 
@@ -157,59 +155,8 @@ async def scrape_stream_generator(request: ScrapeRequest):
                                 max_pages_to_analyze=5,
                             )
 
-                            # Generate a meaningful chat title
                             page_count = len(pages_data)
-
-                            # Try to get a good title from the main page or URL structure
-                            main_page_title = None
-                            if pages_data:
-                                # Get title from first page (main page)
-                                main_page_title = (
-                                    pages_data[0].get("metadata", {}).get("title", "")
-                                )
-
-                            # If no good title from page, generate from URL
-                            if not main_page_title or main_page_title == request.url:
-                                try:
-                                    from urllib.parse import urlparse
-
-                                    parsed = urlparse(request.url)
-                                    domain = parsed.netloc.replace("www.", "")
-                                    path = parsed.path.strip("/").split("/")[
-                                        -1
-                                    ]  # Get last path segment
-
-                                    if path and path not in [
-                                        "index",
-                                        "index.html",
-                                        "home",
-                                    ]:
-                                        # Convert path to readable title (e.g., "api-docs" -> "API Docs")
-                                        title_words = (
-                                            path.replace("-", " ")
-                                            .replace("_", " ")
-                                            .split()
-                                        )
-                                        summary = " ".join(
-                                            word.capitalize() for word in title_words
-                                        )
-                                        if page_count > 1:
-                                            summary += f" ({page_count} pages)"
-                                    else:
-                                        # Just use domain
-                                        summary = domain.split(".")[0].capitalize()
-                                        if page_count > 1:
-                                            summary += f" ({page_count} pages)"
-                                except Exception:
-                                    summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''}"
-                            else:
-                                # Use the page title, trim if too long
-                                summary = main_page_title[:50] + (
-                                    "..." if len(main_page_title) > 50 else ""
-                                )
-                                if page_count > 1:
-                                    summary += f" ({page_count} pages)"
-
+                            summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
                             db_service.update_chat_summary(chat_id, summary)
 
                             pages_list = "\n".join(
@@ -386,41 +333,8 @@ async def scrape_stream_generator(request: ScrapeRequest):
             pages_data=pages_data, domain=domain, max_pages_to_analyze=5
         )
 
-        # Generate a meaningful chat title
         page_count = len(pages_data)
-
-        # Try to get title from main page
-        main_page_title = None
-        if pages_data:
-            main_page_title = pages_data[0].get("metadata", {}).get("title", "")
-
-        # If no good title from page, generate from URL
-        if not main_page_title or main_page_title == request.url:
-            try:
-                from urllib.parse import urlparse
-
-                parsed = urlparse(request.url)
-                domain_name = parsed.netloc.replace("www.", "")
-                path = parsed.path.strip("/").split("/")[-1]
-
-                if path and path not in ["index", "index.html", "home"]:
-                    title_words = path.replace("-", " ").replace("_", " ").split()
-                    summary = " ".join(word.capitalize() for word in title_words)
-                    if page_count > 1:
-                        summary += f" ({page_count} pages)"
-                else:
-                    summary = domain_name.split(".")[0].capitalize()
-                    if page_count > 1:
-                        summary += f" ({page_count} pages)"
-            except Exception:
-                summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''}"
-        else:
-            summary = main_page_title[:50] + (
-                "..." if len(main_page_title) > 50 else ""
-            )
-            if page_count > 1:
-                summary += f" ({page_count} pages)"
-
+        summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
         db_service.update_chat_summary(chat_id, summary)
 
         pages_list = "\n".join(
@@ -439,51 +353,7 @@ async def scrape_stream_generator(request: ScrapeRequest):
         )
         db_service.store_message(chat_id, "ai", summary_content)
 
-        # Stage 6: Start deep scraping if enabled
-        if request.enable_deep_scrape and request.max_depth > 1:
-            try:
-                # Extract links from the first scraped page
-                if pages_data and len(pages_data) > 0:
-                    first_page = pages_data[0]
-                    markdown = first_page.get("markdown", "")
-
-                    if markdown:
-                        base_url = scraper_service._extract_base_url(request.url)
-                        discovered_links = scraper_service.extract_links_from_markdown(
-                            markdown, base_url
-                        )
-
-                        # Filter out the main page URL
-                        discovered_links = [
-                            link
-                            for link in discovered_links
-                            if link.rstrip("/") != request.url.rstrip("/")
-                        ]
-
-                        if discovered_links:
-                            yield f"data: {json.dumps({'stage': 'deep_scraping', 'message': f'Starting deep scrape for {len(discovered_links)} discovered links...', 'progress': 95})}\n\n"
-
-                            # Start background task for deep scraping
-                            background_task_manager.start_task(
-                                crawl_id,
-                                base_url=base_url,
-                                initial_links=discovered_links,
-                                max_depth=request.max_depth,
-                                chat_id=chat_id,
-                            )
-
-                            # Update crawl status
-                            db_service.update_crawl_status(
-                                crawl_id,
-                                status="scraping",
-                                max_depth=request.max_depth,
-                                total_links=len(discovered_links),
-                            )
-            except Exception as e:
-                print(f"Warning: Failed to start deep scraping: {str(e)}")
-                # Don't fail the entire scrape if deep scraping fails to start
-
-        # Stage 7: Complete
+        # Stage 6: Complete
         yield f"data: {json.dumps({'stage': 'complete', 'message': 'Scraping completed successfully!', 'chat_id': chat_id, 'crawl_id': crawl_id, 'page_count': len(pages_data), 'from_cache': False, 'progress': 100})}\n\n"
 
     except Exception as e:
@@ -651,41 +521,9 @@ async def scrape_website(request: ScrapeRequest):
             pages_data=pages_data, domain=domain, max_pages_to_analyze=5
         )
 
-        # Generate a meaningful chat title
+        # Store short summary for chat metadata
         page_count = len(pages_data)
-
-        # Try to get title from main page
-        main_page_title = None
-        if pages_data:
-            main_page_title = pages_data[0].get("metadata", {}).get("title", "")
-
-        # If no good title from page, generate from URL
-        if not main_page_title or main_page_title == request.url:
-            try:
-                from urllib.parse import urlparse
-
-                parsed = urlparse(request.url)
-                domain_name = parsed.netloc.replace("www.", "")
-                path = parsed.path.strip("/").split("/")[-1]
-
-                if path and path not in ["index", "index.html", "home"]:
-                    title_words = path.replace("-", " ").replace("_", " ").split()
-                    summary = " ".join(word.capitalize() for word in title_words)
-                    if page_count > 1:
-                        summary += f" ({page_count} pages)"
-                else:
-                    summary = domain_name.split(".")[0].capitalize()
-                    if page_count > 1:
-                        summary += f" ({page_count} pages)"
-            except Exception:
-                summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''}"
-        else:
-            summary = main_page_title[:50] + (
-                "..." if len(main_page_title) > 50 else ""
-            )
-            if page_count > 1:
-                summary += f" ({page_count} pages)"
-
+        summary = f"Indexed {page_count} page{'s' if page_count > 1 else ''} from {request.url}"
         db_service.update_chat_summary(chat_id, summary)
 
         # Get page titles list
@@ -992,62 +830,6 @@ async def query_rag(request: QueryRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
-
-
-# ============== Deep Scraping Endpoints ==============
-
-
-@router.get("/crawls/{crawl_id}/progress", response_model=CrawlProgressResponse)
-async def get_crawl_progress(crawl_id: str):
-    """
-    Get real-time progress for a deep scraping crawl.
-    Returns statistics about pages scraped, indexed, and pending.
-    """
-    try:
-        progress = db_service.get_crawl_progress(crawl_id)
-
-        if "error" in progress:
-            raise HTTPException(status_code=404, detail=progress["error"])
-
-        return CrawlProgressResponse(**progress)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get progress: {str(e)}")
-
-
-@router.post("/crawls/{crawl_id}/cancel")
-async def cancel_crawl(crawl_id: str):
-    """
-    Cancel an in-progress deep scraping crawl.
-    """
-    try:
-        success = background_task_manager.cancel_task(crawl_id)
-
-        if not success:
-            # Check if crawl exists
-            crawl = db_service.get_crawl(crawl_id)
-            if not crawl:
-                raise HTTPException(
-                    status_code=404, detail=f"Crawl {crawl_id} not found"
-                )
-
-            # Crawl exists but not running
-            return {
-                "success": False,
-                "message": "Crawl is not currently running",
-                "crawl_id": crawl_id,
-            }
-
-        return {
-            "success": True,
-            "message": "Crawl cancelled successfully",
-            "crawl_id": crawl_id,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to cancel crawl: {str(e)}")
 
 
 # ============== Widget API Endpoints ==============

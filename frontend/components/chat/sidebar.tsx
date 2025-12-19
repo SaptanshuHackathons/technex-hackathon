@@ -10,8 +10,7 @@ import {
     Sparkles,
     MessageSquare,
     Clock,
-    Trash2,
-    Activity
+    Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import * as React from "react";
@@ -19,7 +18,6 @@ import { useChatStore } from "@/lib/store";
 import { TreeNode } from "@/lib/api";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { CrawlProgressIndicator } from "./crawl-progress";
 
 interface SidebarProps {
     className?: string;
@@ -72,18 +70,7 @@ function TreeNodeComponent({ node, level = 0 }: { node: TreeNode; level?: number
 }
 
 export function ChatSidebar({ className }: SidebarProps) {
-    const {
-        pageTree,
-        isLoadingTree,
-        chatId,
-        setChatId,
-        previousChats,
-        loadPreviousChats,
-        isLoadingChats,
-        deleteChat,
-        activeCrawls,
-        cancelCrawl
-    } = useChatStore();
+    const { pageTree, isLoadingTree, chatId, setChatId, previousChats, loadPreviousChats, isLoadingChats, deleteChat } = useChatStore();
     const searchParams = useSearchParams();
     const router = useRouter();
     const [deletingChatId, setDeletingChatId] = React.useState<string | null>(null);
@@ -159,28 +146,6 @@ export function ChatSidebar({ className }: SidebarProps) {
                     <Plus className="h-4 w-4" />
                 </Button>
             </div>
-
-            {/* Active Crawls Section */}
-            {activeCrawls.size > 0 && (
-                <div className="p-4 border-b border-gray-200 dark:border-zinc-800">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        <h3 className="font-semibold text-sm">Active Crawls</h3>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                            {activeCrawls.size}
-                        </span>
-                    </div>
-                    <div className="space-y-2">
-                        {Array.from(activeCrawls.values()).map((progress) => (
-                            <CrawlProgressIndicator
-                                key={progress.crawl_id}
-                                progress={progress}
-                                onCancel={cancelCrawl}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* Scrollable Content */}
             <div className="flex-1 space-y-6 overflow-y-auto px-2">

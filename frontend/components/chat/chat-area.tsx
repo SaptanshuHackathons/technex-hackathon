@@ -26,28 +26,20 @@ export function ChatArea() {
     React.useEffect(() => {
         const scrapingParam = searchParams.get("scraping");
         const urlParam = searchParams.get("url");
-        const enableDeepScrapeParam = searchParams.get("enableDeepScrape");
-        const maxDepthParam = searchParams.get("maxDepth");
 
         if (scrapingParam === "true" && urlParam && !isScraping && !chatId && !scrapeInitiatedRef.current) {
             // Mark as initiated to prevent duplicate scraping
             scrapeInitiatedRef.current = true;
 
-            // Parse parameters
-            const enableDeepScrape = enableDeepScrapeParam === "true";
-            const maxDepth = maxDepthParam ? parseInt(maxDepthParam, 10) : 1;
-
-            console.log('Starting scrape with:', { url: urlParam, maxDepth, enableDeepScrape });
-
             // Start scraping
-            startScrapeWithProgress(decodeURIComponent(urlParam), maxDepth, enableDeepScrape).catch((error) => {
+            startScrapeWithProgress(decodeURIComponent(urlParam), 1).catch((error) => {
                 console.error("Scraping failed:", error);
                 alert(error instanceof Error ? error.message : "Failed to scrape website");
                 scrapeInitiatedRef.current = false;
                 router.push("/");
             });
         }
-    }, [searchParams, isScraping, chatId, startScrapeWithProgress, router]);
+    }, [searchParams, isScraping, chatId]);
 
     // Load chat from URL parameter
     React.useEffect(() => {
@@ -110,7 +102,7 @@ export function ChatArea() {
                                 {/* Progress Bar */}
                                 <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-emerald-100 dark:bg-emerald-950/50">
                                     <div
-                                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 transition-all duration-500 ease-out"
+                                        className="h-full bg-linear-to-r from-emerald-500 to-emerald-600 transition-all duration-500 ease-out"
                                         style={{
                                             width: `${scrapingStages.length > 0 ? scrapingStages[scrapingStages.length - 1].progress : 0}%`
                                         }}
@@ -130,7 +122,7 @@ export function ChatArea() {
                                             {stage.completed ? (
                                                 <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                                             ) : (
-                                                <Loader2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 animate-spin flex-shrink-0" />
+                                                <Loader2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 animate-spin shrink-0" />
                                             )}
                                             <div className="flex-1">
                                                 <p className={cn(
@@ -189,7 +181,7 @@ export function ChatArea() {
                                         className={cn(
                                             "relative max-w-[80%] rounded-2xl px-5 py-3 text-sm leading-relaxed shadow-sm",
                                             msg.role === "user"
-                                                ? "bg-gradient-to-br from-emerald-600 to-emerald-700 text-white dark:from-emerald-500 dark:to-emerald-600"
+                                                ? "bg-linear-to-br from-emerald-600 to-emerald-700 text-white dark:from-emerald-500 dark:to-emerald-600"
                                                 : "bg-white border border-emerald-200/50 text-gray-800 dark:bg-zinc-900 dark:border-emerald-900/30 dark:text-gray-200"
                                         )}
                                     >
@@ -230,7 +222,7 @@ export function ChatArea() {
                 <div className="mx-auto max-w-3xl px-4">
                     <form onSubmit={handleSend} className="relative flex items-end gap-2 rounded-2xl border border-emerald-300 bg-white p-2 shadow-lg dark:border-emerald-900/50 dark:bg-zinc-900">
                         <input
-                            className="flex-1 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-black dark:text-white dark:placeholder:text-emerald-600"
+                            className="flex-1 bg-transparent px-4 py-3 text-sm outline-none placeholder:text-emerald-400 dark:text-white dark:placeholder:text-emerald-600"
                             placeholder={isScraping ? "Scraping in progress..." : chatId ? "Ask anything..." : "No active chat session"}
                             value={input}
                             onChange={(e) => setInput(e.target.value)}

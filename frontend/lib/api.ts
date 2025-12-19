@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 // Default timeout for API requests (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
@@ -68,14 +68,14 @@ async function fetchWithRetry(
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+  
   const fetchOptions: RequestInit = {
     ...options,
     signal: controller.signal,
   };
 
   let lastError: Error | null = null;
-
+  
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       const response = await fetch(url, fetchOptions);
@@ -84,48 +84,39 @@ async function fetchWithRetry(
     } catch (error) {
       lastError = error as Error;
       clearTimeout(timeoutId);
-
+      
       // Don't retry on abort (user cancelled or timeout)
-      if ((error as Error).name === "AbortError") {
-        throw new Error("Request timed out");
+      if ((error as Error).name === 'AbortError') {
+        throw new Error('Request timed out');
       }
-
+      
       // Don't retry on last attempt
       if (attempt < retries - 1) {
         // Exponential backoff with jitter
-        const delay =
-          RETRY_DELAY_BASE * Math.pow(2, attempt) + Math.random() * 500;
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        const delay = RETRY_DELAY_BASE * Math.pow(2, attempt) + Math.random() * 500;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
-
-  throw lastError || new Error("Request failed after retries");
+  
+  throw lastError || new Error('Request failed after retries');
 }
 
-export async function scrapeWebsite(
-  url: string,
-  maxDepth: number = 1
-): Promise<ScrapeResponse> {
-  const response = await fetchWithRetry(
-    `${API_BASE_URL}/scrape`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        url,
-        max_depth: maxDepth,
-      }),
+export async function scrapeWebsite(url: string, maxDepth: number = 1): Promise<ScrapeResponse> {
+  const response = await fetchWithRetry(`${API_BASE_URL}/scrape`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    MAX_RETRIES,
-    120000
-  ); // 2 minute timeout for scraping
+    body: JSON.stringify({
+      url,
+      max_depth: maxDepth,
+    }),
+  }, MAX_RETRIES, 120000); // 2 minute timeout for scraping
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to scrape website");
+    throw new Error(error.detail || 'Failed to scrape website');
   }
 
   return response.json();
@@ -136,38 +127,29 @@ export async function getChatTree(chatId: string): Promise<TreeNode[]> {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to get chat tree");
+    throw new Error(error.detail || 'Failed to get chat tree');
   }
 
   const data: ChatTreeResponse = await response.json();
   return data.tree;
 }
 
-export async function queryRAG(
-  chatId: string,
-  query: string,
-  limit: number = 5
-): Promise<QueryResponse> {
-  const response = await fetchWithRetry(
-    `${API_BASE_URL}/query`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        query,
-        limit,
-      }),
+export async function queryRAG(chatId: string, query: string, limit: number = 5): Promise<QueryResponse> {
+  const response = await fetchWithRetry(`${API_BASE_URL}/query`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
-    MAX_RETRIES,
-    60000
-  ); // 1 minute timeout for queries
+    body: JSON.stringify({
+      chat_id: chatId,
+      query,
+      limit,
+    }),
+  }, MAX_RETRIES, 60000); // 1 minute timeout for queries
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to query RAG");
+    throw new Error(error.detail || 'Failed to query RAG');
   }
 
   return response.json();
@@ -178,7 +160,7 @@ export async function listChats(): Promise<Chat[]> {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to list chats");
+    throw new Error(error.detail || 'Failed to list chats');
   }
 
   return response.json();
@@ -187,20 +169,18 @@ export async function listChats(): Promise<Chat[]> {
 export interface Message {
   id: string;
   chat_id: string;
-  role: "user" | "ai";
+  role: 'user' | 'ai';
   content: string;
   sources: Source[];
   created_at: string;
 }
 
 export async function getChatMessages(chatId: string): Promise<Message[]> {
-  const response = await fetchWithRetry(
-    `${API_BASE_URL}/chats/${chatId}/messages`
-  );
+  const response = await fetchWithRetry(`${API_BASE_URL}/chats/${chatId}/messages`);
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to get chat messages");
+    throw new Error(error.detail || 'Failed to get chat messages');
   }
 
   const data = await response.json();
@@ -219,38 +199,36 @@ export interface ScrapeProgress {
 export async function scrapeWebsiteWithProgress(
   url: string,
   maxDepth: number = 1,
-  onProgress: (progress: ScrapeProgress) => void,
-  enableDeepScrape: boolean = false
+  onProgress: (progress: ScrapeProgress) => void
 ): Promise<{ chat_id: string; crawl_id: string }> {
   // Use AbortController for cleanup on component unmount
   const controller = new AbortController();
-
+  
   const response = await fetch(`${API_BASE_URL}/scrape/stream`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       url,
       max_depth: maxDepth,
-      enable_deep_scrape: enableDeepScrape,
     }),
     signal: controller.signal,
   });
 
   if (!response.ok) {
-    throw new Error("Failed to start scraping");
+    throw new Error('Failed to start scraping');
   }
 
   const reader = response.body?.getReader();
   const decoder = new TextDecoder();
 
   if (!reader) {
-    throw new Error("Response body is null");
+    throw new Error('Response body is null');
   }
 
-  let chatId = "";
-  let crawlId = "";
+  let chatId = '';
+  let crawlId = '';
 
   try {
     while (true) {
@@ -258,10 +236,10 @@ export async function scrapeWebsiteWithProgress(
       if (done) break;
 
       const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
+      const lines = chunk.split('\n');
 
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
+        if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.substring(6));
             onProgress(data);
@@ -269,12 +247,12 @@ export async function scrapeWebsiteWithProgress(
             if (data.chat_id) chatId = data.chat_id;
             if (data.crawl_id) crawlId = data.crawl_id;
 
-            if (data.stage === "error") {
+            if (data.stage === 'error') {
               throw new Error(data.message);
             }
           } catch (parseError) {
             // Ignore parse errors for incomplete chunks
-            console.warn("Failed to parse SSE chunk:", line);
+            console.warn('Failed to parse SSE chunk:', line);
           }
         }
       }
@@ -288,57 +266,11 @@ export async function scrapeWebsiteWithProgress(
 
 export async function deleteChat(chatId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/chats/${chatId}`, {
-    method: "DELETE",
+    method: 'DELETE',
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || "Failed to delete chat");
+    throw new Error(error.detail || 'Failed to delete chat');
   }
-}
-
-// ============== Deep Scraping API ==============
-
-export interface CrawlProgress {
-  crawl_id: string;
-  status: string;
-  current_depth: number;
-  max_depth: number;
-  total_links_found: number;
-  total_pages: number;
-  pages_pending: number;
-  pages_scraped: number;
-  pages_indexed: number;
-  pages_failed: number;
-  progress_percentage: number;
-}
-
-export async function getCrawlProgress(
-  crawlId: string
-): Promise<CrawlProgress> {
-  const response = await fetchWithRetry(
-    `${API_BASE_URL}/crawls/${crawlId}/progress`
-  );
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Failed to get crawl progress");
-  }
-
-  return response.json();
-}
-
-export async function cancelCrawl(
-  crawlId: string
-): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`${API_BASE_URL}/crawls/${crawlId}/cancel`, {
-    method: "POST",
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || "Failed to cancel crawl");
-  }
-
-  return response.json();
 }

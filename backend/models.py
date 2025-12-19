@@ -7,7 +7,6 @@ class ScrapeRequest(BaseModel):
     max_depth: Optional[int] = 3
     crawl_id: Optional[str] = None  # If not provided, will be generated
     force_refresh: Optional[bool] = False  # Force re-scraping even if data exists
-    enable_deep_scrape: Optional[bool] = False  # Enable background deep link discovery
 
 
 class PageInfo(BaseModel):
@@ -123,22 +122,3 @@ class SummarizeResponse(BaseModel):
     chat_id: str
     crawl_id: Optional[str] = None
     metadata: Dict[str, Any]
-
-
-# ============== Deep Scraping Models ==============
-
-
-class CrawlProgressResponse(BaseModel):
-    """Response containing crawl progress information."""
-
-    crawl_id: str
-    status: str  # queued/scraping/indexing/completed/failed/cancelled
-    current_depth: int
-    max_depth: int
-    total_links_found: int
-    total_pages: int
-    pages_pending: int
-    pages_scraped: int
-    pages_indexed: int
-    pages_failed: int
-    progress_percentage: int

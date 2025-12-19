@@ -13,7 +13,6 @@ Astra is a complete platform for building intelligent chatbots that understand y
 
 ### 🎯 Key Features
 
-* **Smart RAG System** — Uses Google Gemini and semantic search for grounded, context-aware answers
 * **One-Time Indexing** — Crawl and embed documentation once, reuse across conversations
 * **Embeddable Widget** — Drop-in React component with a polished UI
 * **Fully Customizable** — Clerk-style appearance API for deep theming control

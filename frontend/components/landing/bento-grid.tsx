@@ -27,7 +27,7 @@ export function BentoGrid() {
                 >
                     <h2 className="text-4xl font-bold tracking-tight sm:text-5xl mb-4">
                         Everything you need to{" "}
-                        <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+                        <span className="bg-linear-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
                             scrape smarter
                         </span>
                     </h2>
@@ -39,7 +39,7 @@ export function BentoGrid() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[minmax(180px,auto)]">
                     {/* API Integration Card - Large Vertical */}
                     <div className="md:col-span-2 md:row-span-2 group relative overflow-hidden rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl transition-all duration-300">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 blur-3xl rounded-full" />
+                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-linear-to-br from-emerald-500/20 to-teal-500/20 blur-3xl rounded-full" />
 
                         <div className="p-8 flex flex-col h-full relative z-10">
                             <div className="flex items-center gap-3 mb-4">
@@ -138,8 +138,8 @@ export function BentoGrid() {
                                             </div>
                                         </div>
                                         <div className={`text-xs font-medium px-2 py-1 rounded-md ${job.status === "Active"
-                                                ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
-                                                : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
+                                            ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                                            : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
                                             }`}>
                                             {job.status}
                                         </div>

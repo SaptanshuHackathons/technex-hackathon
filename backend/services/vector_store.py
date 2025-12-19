@@ -9,7 +9,13 @@ from qdrant_client.models import (
     FieldCondition,
     MatchValue,
 )
-from config import QDRANT_URL, QDRANT_API_KEY, COLLECTION_NAME, EMBEDDING_DIMENSION, WIDGET_COLLECTION_NAME
+from config import (
+    QDRANT_URL,
+    QDRANT_API_KEY,
+    COLLECTION_NAME,
+    EMBEDDING_DIMENSION,
+    WIDGET_COLLECTION_NAME,
+)
 
 
 class VectorStoreService:
@@ -20,7 +26,7 @@ class VectorStoreService:
         self.collection_name = COLLECTION_NAME
         self._client = None  # Will be initialized on first use
         self._connection_error = None  # Store connection errors
-        
+
     def _get_client(self):
         """Get Qdrant client, creating it if necessary (lazy initialization)."""
         if self._client is None:
@@ -31,29 +37,35 @@ class VectorStoreService:
                     f"Please start Qdrant (e.g., 'docker-compose up -d qdrant' or 'docker run -p 6333:6333 qdrant/qdrant'). "
                     f"Original error: {self._connection_error}"
                 )
-            
+
             try:
                 if self.qdrant_api_key:
-                    self._client = QdrantClient(url=self.qdrant_url, api_key=self.qdrant_api_key)
+                    self._client = QdrantClient(
+                        url=self.qdrant_url, api_key=self.qdrant_api_key
+                    )
                     print(f"Connected to Qdrant Cloud: {self.qdrant_url}")
                 else:
                     # Local Qdrant instance
                     self._client = QdrantClient(url=self.qdrant_url)
                     print(f"Connected to local Qdrant: {self.qdrant_url}")
-                
+
                 # Ensure collection exists on first connection
                 self._ensure_collection_exists()
                 self._ensure_payload_indexes()
             except Exception as e:
                 # Store the error but don't raise - allow server to start
                 self._connection_error = str(e)
-                print(f"Warning: Could not connect to Qdrant at {self.qdrant_url}: {str(e)}")
-                print("Server will start, but vector operations will fail until Qdrant is available.")
+                print(
+                    f"Warning: Could not connect to Qdrant at {self.qdrant_url}: {str(e)}"
+                )
+                print(
+                    "Server will start, but vector operations will fail until Qdrant is available."
+                )
                 print("Start Qdrant with: docker-compose up -d qdrant")
                 # Return None to indicate connection failed
                 return None
         return self._client
-    
+
     @property
     def client(self):
         """Property to access client with lazy initialization."""
@@ -120,13 +132,15 @@ class VectorStoreService:
                 print(
                     f"Created Qdrant collection: {self.collection_name} with dimension {EMBEDDING_DIMENSION}"
                 )
-                print(f"Created Qdrant collection: {self.collection_name} with dimension {EMBEDDING_DIMENSION}")
-                
+                print(
+                    f"Created Qdrant collection: {self.collection_name} with dimension {EMBEDDING_DIMENSION}"
+                )
+
                 # Create filter index for crawl_id
                 self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name="crawl_id",
-                    field_schema="keyword"
+                    field_schema="keyword",
                 )
                 print(f"Created payload index for 'crawl_id'")
             else:
@@ -402,11 +416,11 @@ class VectorStoreService:
             raise Exception(f"Failed to batch store embeddings: {str(e)}")
 
     async def search_similar(
-        self, 
-        query_embedding: List[float], 
+        self,
+        query_embedding: List[float],
         crawl_id: str,
         limit: int = 10,
-        score_threshold: float = 0.3
+        score_threshold: float = 0.3,
     ) -> List[Dict[str, Any]]:
         """
         Search for similar documents using query embedding, filtered by crawl_id.
@@ -416,7 +430,7 @@ class VectorStoreService:
             crawl_id: Crawl session ID to filter results (only search within this crawl)
             limit: Maximum number of results (increased for better context)
             score_threshold: Minimum similarity score (0-1) to include results
-            
+
         Returns:
             List of similar documents with scores above threshold
         """
@@ -441,17 +455,16 @@ class VectorStoreService:
                 "with_payload": True,
                 "filter": {"must": [{"key": "crawl_id", "match": {"value": crawl_id}}]},
             }
-            
+
             print(f"DEBUG: Search Payload - Vector Dim: {len(query_vector)}")
             print(f"DEBUG: Search Payload - Filter Crawl ID: {crawl_id}")
             # print(f"DEBUG: Full Payload: {payload}") # Uncomment for verbose
-
 
             # Make HTTP request to Qdrant API
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(search_url, json=payload, headers=headers)
                 if response.status_code != 200:
-                   print(f"DEBUG: Qdrant Error Body: {response.text}")
+                    print(f"DEBUG: Qdrant Error Body: {response.text}")
                 response.raise_for_status()
                 result_data = response.json()
 
@@ -476,25 +489,27 @@ class VectorStoreService:
                 # Double-check crawl_id filter (defensive)
                 if payload_data.get("crawl_id") != crawl_id:
                     continue
-                
+
                 # Filter by score threshold for better relevance
                 if float(score) < score_threshold:
                     continue
-                
-                results.append({
-                    "page_id": payload_data.get("page_id", ""),
-                    "url": payload_data.get("url", ""),
-                    "base_url": payload_data.get("base_url", ""),
-                    "markdown": payload_data.get("markdown", ""),
-                    "title": payload_data.get("title", ""),
-                    "crawl_id": payload_data.get("crawl_id", ""),
-                    "score": float(score),
-                    "metadata": {
-                        "chunk_index": payload_data.get("chunk_index"),
-                        "total_chunks": payload_data.get("total_chunks"),
-                        "original_page_id": payload_data.get("original_page_id"),
+
+                results.append(
+                    {
+                        "page_id": payload_data.get("page_id", ""),
+                        "url": payload_data.get("url", ""),
+                        "base_url": payload_data.get("base_url", ""),
+                        "markdown": payload_data.get("markdown", ""),
+                        "title": payload_data.get("title", ""),
+                        "crawl_id": payload_data.get("crawl_id", ""),
+                        "score": float(score),
+                        "metadata": {
+                            "chunk_index": payload_data.get("chunk_index"),
+                            "total_chunks": payload_data.get("total_chunks"),
+                            "original_page_id": payload_data.get("original_page_id"),
+                        },
                     }
-                })
+                )
 
             return results
         except Exception as e:
@@ -535,7 +550,7 @@ class VectorStoreService:
                     ),
                 )
                 print(f"Created widget collection: {WIDGET_COLLECTION_NAME}")
-                
+
                 # Create indexes for widget collection
                 try:
                     self.client.create_payload_index(
@@ -552,16 +567,19 @@ class VectorStoreService:
     async def widget_has_embeddings(self, site_id: str) -> tuple[bool, int]:
         """
         Check if embeddings exist for a given site_id.
-        
+
         Returns:
             Tuple of (has_embeddings, count)
         """
         try:
             self._ensure_widget_collection_exists()
-            
+
             # Count points with this site_id
             import httpx
-            count_url = f"{QDRANT_URL}/collections/{WIDGET_COLLECTION_NAME}/points/count"
+
+            count_url = (
+                f"{QDRANT_URL}/collections/{WIDGET_COLLECTION_NAME}/points/count"
+            )
             headers = {"Content-Type": "application/json"}
             if QDRANT_API_KEY:
                 headers["api-key"] = QDRANT_API_KEY
@@ -585,7 +603,7 @@ class VectorStoreService:
     ) -> bool:
         """
         Store embeddings for a widget site.
-        
+
         Args:
             site_id: Unique site identifier
             embeddings_data: List of embedding data dicts
@@ -638,7 +656,9 @@ class VectorStoreService:
 
             query_vector = [float(x) for x in query_embedding]
 
-            search_url = f"{QDRANT_URL}/collections/{WIDGET_COLLECTION_NAME}/points/search"
+            search_url = (
+                f"{QDRANT_URL}/collections/{WIDGET_COLLECTION_NAME}/points/search"
+            )
             headers = {"Content-Type": "application/json"}
             if QDRANT_API_KEY:
                 headers["api-key"] = QDRANT_API_KEY
@@ -659,17 +679,21 @@ class VectorStoreService:
             results = []
 
             for point in points:
-                payload_data = point.get("payload", {}) if isinstance(point, dict) else {}
+                payload_data = (
+                    point.get("payload", {}) if isinstance(point, dict) else {}
+                )
                 score = point.get("score", 0.0) if isinstance(point, dict) else 0.0
 
-                results.append({
-                    "page_id": payload_data.get("page_id", ""),
-                    "url": payload_data.get("url", ""),
-                    "markdown": payload_data.get("markdown", ""),
-                    "title": payload_data.get("title", ""),
-                    "label": payload_data.get("label", ""),
-                    "score": float(score),
-                })
+                results.append(
+                    {
+                        "page_id": payload_data.get("page_id", ""),
+                        "url": payload_data.get("url", ""),
+                        "markdown": payload_data.get("markdown", ""),
+                        "title": payload_data.get("title", ""),
+                        "label": payload_data.get("label", ""),
+                        "score": float(score),
+                    }
+                )
 
             return results
         except Exception as e:
@@ -682,7 +706,9 @@ class VectorStoreService:
         try:
             import httpx
 
-            delete_url = f"{QDRANT_URL}/collections/{WIDGET_COLLECTION_NAME}/points/delete"
+            delete_url = (
+                f"{QDRANT_URL}/collections/{WIDGET_COLLECTION_NAME}/points/delete"
+            )
             headers = {"Content-Type": "application/json"}
             if QDRANT_API_KEY:
                 headers["api-key"] = QDRANT_API_KEY

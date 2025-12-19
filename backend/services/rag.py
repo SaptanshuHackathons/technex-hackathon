@@ -16,7 +16,7 @@ class RAGService:
         self.max_retries = 3
         self.base_delay = 1.0
         self.max_delay = 10.0
-    
+
     async def _invoke_with_retry(self, messages) -> Any:
         """Invoke LLM with exponential backoff retry logic."""
         last_exception = None
@@ -27,8 +27,13 @@ class RAGService:
                 last_exception = e
                 if attempt < self.max_retries - 1:
                     # Exponential backoff with jitter
-                    delay = min(self.base_delay * (2 ** attempt) + random.uniform(0, 1), self.max_delay)
-                    print(f"Gemini API attempt {attempt + 1} failed: {str(e)}. Retrying in {delay:.1f}s...")
+                    delay = min(
+                        self.base_delay * (2**attempt) + random.uniform(0, 1),
+                        self.max_delay,
+                    )
+                    print(
+                        f"Gemini API attempt {attempt + 1} failed: {str(e)}. Retrying in {delay:.1f}s..."
+                    )
                     await asyncio.sleep(delay)
         raise last_exception
 
@@ -121,7 +126,7 @@ Please provide a comprehensive answer based on the context above. When referenci
                         source_info = sources_map[num]
                         url = source_info["url"]
                         title = source_info["title"]
-                        
+
                         # Use title if available, otherwise extract from URL
                         if title and title.strip():
                             link_text = title.strip()
@@ -131,16 +136,22 @@ Please provide a comprehensive answer based on the context above. When referenci
                         else:
                             # Extract meaningful part from URL (path or domain)
                             from urllib.parse import urlparse
+
                             parsed = urlparse(url)
                             path = parsed.path.strip("/")
                             if path:
                                 # Use last part of path
-                                link_text = path.split("/")[-1].replace("-", " ").replace("_", " ").title()
+                                link_text = (
+                                    path.split("/")[-1]
+                                    .replace("-", " ")
+                                    .replace("_", " ")
+                                    .title()
+                                )
                                 if len(link_text) > 60:
                                     link_text = link_text[:57] + "..."
                             else:
                                 link_text = parsed.netloc or f"Source {num}"
-                        
+
                         # Create markdown link with descriptive text
                         links.append(f"[{link_text}]({url})")
 
