@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Download, Database, FileText, Loader2, ExternalLink } from 'lucide-react';
+import { Send, Download, Database, FileText, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message } from '../services/api';
@@ -28,6 +28,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isSummarizing
 }) => {
   const [input, setInput] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -37,6 +38,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // Simulate loading for 1.5 seconds
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsRefreshing(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +101,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
         {/* Right: Secondary Actions */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="p-1.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            title="Refresh chats"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+
           <a
             href="https://astra-web.com"
             target="_blank"

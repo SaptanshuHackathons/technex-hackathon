@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useChatStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { ArrowUp, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowUp, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,6 +12,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 export function ChatArea() {
     const { messages, isLoading, sendMessage, chatId, setChatId, isScraping, scrapingStages, startScrapeWithProgress } = useChatStore();
     const [input, setInput] = React.useState("");
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
     const searchParams = useSearchParams();
     const router = useRouter();
     const messagesEndRef = React.useRef<HTMLDivElement>(null);
@@ -62,6 +63,13 @@ export function ChatArea() {
         }
     }, [chatId, searchParams, router]);
 
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        // Simulate loading for 1.5 seconds
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsRefreshing(false);
+    };
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() || isLoading || !chatId) return;
@@ -81,6 +89,19 @@ export function ChatArea() {
             {/* Top Bar / Header */}
             <div className="flex items-center justify-between border-b border-emerald-200/50 px-6 py-4 dark:border-emerald-900/30">
                 <h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-100">Chat</h2>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="h-8 w-8 p-0"
+                    title="Refresh chats"
+                >
+                    <RefreshCw className={cn(
+                        "h-4 w-4 text-emerald-600 dark:text-emerald-400",
+                        isRefreshing && "animate-spin"
+                    )} />
+                </Button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
